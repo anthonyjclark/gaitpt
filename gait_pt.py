@@ -25,6 +25,11 @@ Poses = List[Tuple[float, List[Tuple[float, float]]]]
 
 
 class FootState(IntEnum):
+    '''
+    Enumerates FootStates using integers 1 - 5.
+
+    GROUND (5) is being deprecated in favor of (TODO)
+    '''
     SWING = 1
     LIFT = 2
     THRUST = 3
@@ -46,6 +51,12 @@ class Leg(object):
     def __init__(
         self, stride: float, state: FootState, foot_x: float, swing_y: float
     ) -> None:
+        '''
+        Given stride length, foot state, and foot position (x and y), creates a 
+        leg object.
+
+        '''
+
         super().__init__()
         self.state = state
         self.stride = stride
@@ -54,12 +65,28 @@ class Leg(object):
         self.swing_y = swing_y
 
     def is_swinging(self) -> bool:
+        '''
+        Returns true if foot state is currently 'SWING'
+        '''
         return self.state == FootState.SWING
 
     def not_swinging(self) -> bool:
+        '''
+        Returns true if not is_swinging()
+        '''
         return not self.is_swinging()
 
     def motion_step(self, hip_x: float) -> Tuple[float, float]:
+        '''
+        Given hip position (x) and using is_swinging results, set the new footstate
+        or continue moving the foot, depending on whether a stride is completed.
+
+        Returns (tuple pair):
+        - self.foot_x = current horizontal position of foot
+        - self.swing_y = current height of foot
+        - 0 if not self.is_swinging(): no change in position anticipated
+        
+        '''
 
         if self.not_swinging() and self.foot_x < hip_x - self.half_stride:
             self.state = FootState.SWING
@@ -71,9 +98,14 @@ class Leg(object):
             # TODO: make foot delta a parameter
             self.foot_x += 8 / (32 / 3)
 
+        #TODO: should this return 0,0 if not swinging?
         return self.foot_x, self.swing_y if self.is_swinging() else 0
 
     def create_actors(self, ax: plt.Axes) -> Actors:
+        '''
+        TODO: 
+        
+        '''
         # TODO: linewidth as parameter
         (leg_ln,) = ax.plot([], [], marker="o", linewidth=5)
         return [leg_ln]
