@@ -28,7 +28,7 @@ class FootState(IntEnum):
     '''
     Enumerates FootStates using integers 1 - 5.
 
-    GROUND (5) is being deprecated in favor of (TODO)
+    GROUND (5) is being deprecated in favor of (TODO)?
     '''
     SWING = 1
     LIFT = 2
@@ -41,6 +41,9 @@ class FootState(IntEnum):
 
 # Start with just one leg
 def walk_footfalls():
+    '''
+    TODO   
+    '''
     ...
 
 
@@ -51,11 +54,16 @@ class Leg(object):
     def __init__(
         self, stride: float, state: FootState, foot_x: float, swing_y: float
     ) -> None:
-        '''
+        """
         Given stride length, foot state, and foot position (x and y), creates a 
         leg object.
 
-        '''
+        Args:
+            stride (float): length of full stride
+            state (FootState): FootState IntEnum; 1-4 supported
+            foot_x (float): horizontal position of foot
+            swing_y (float): vertical position of foot, if swinging
+        """    
 
         super().__init__()
         self.state = state
@@ -76,36 +84,52 @@ class Leg(object):
         '''
         return not self.is_swinging()
 
-    def motion_step(self, hip_x: float) -> Tuple[float, float]:
-        '''
+    def motion_step(self, hip_x: float, foot_delta: float = 8 / (32/3)) -> Tuple[float, float]:
+        """
         Given hip position (x) and using is_swinging results, set the new footstate
         or continue moving the foot, depending on whether a stride is completed.
 
-        Returns (tuple pair):
-        - self.foot_x = current horizontal position of foot
-        - self.swing_y = current height of foot
-        - 0 if not self.is_swinging(): no change in position anticipated
-        
-        '''
+        Args:
+            hip_x (float): Position of hip
+            foot_delta (float, optional): Amount to move foot. Added as parameter
+            per todo comment. Defaults to 8/(32/3), which was original amount in 
+            previous version of code.
 
+        Returns:
+            Tuple[float, float]: 
+                - self.foot_x = current horizontal position of foot
+                - self.swing_y = current height of foot
+                - 0 if not self.is_swinging(): no change in position anticipated
+        
+        """        
+       
         if self.not_swinging() and self.foot_x < hip_x - self.half_stride:
+            # start swinging the foot
             self.state = FootState.SWING
         elif self.not_swinging():
+            #not swinging and doesn't need to
             pass
         elif self.is_swinging() and self.foot_x > hip_x + self.half_stride:
+            #completed the stride
             self.state = FootState.GROUND
         else:
-            # TODO: make foot delta a parameter
-            self.foot_x += 8 / (32 / 3)
+            # if moving and not completed the stride, move a little bit more
+            self.foot_x += foot_delta
 
         #TODO: should this return 0,0 if not swinging?
         return self.foot_x, self.swing_y if self.is_swinging() else 0
 
     def create_actors(self, ax: plt.Axes) -> Actors:
-        '''
-        TODO: 
+        """
+        TODO: I don't really understand this section..
+
+        Args:
+            ax (plt.Axes): [description]
+
+        Returns:
+            Actors: [description]
+        """        
         
-        '''
         # TODO: linewidth as parameter
         (leg_ln,) = ax.plot([], [], marker="o", linewidth=5)
         return [leg_ln]
@@ -115,6 +139,14 @@ class Animat(object):
     # TODO: four legs, give center of body instead of hip
     # - hip height
     def __init__(self, stride: float, initial_x: float, foot_lift: float) -> None:
+        """
+        Initiates Animat by setting its hip position and adding legs in.
+
+        Args:
+            stride (float): length of a stride
+            initial_x (float): initial position of object's hip
+            foot_lift (float): TODO: want to confirm that this is max distance from ground
+        """        
         super().__init__()
 
         self.hip_x = initial_x
@@ -124,9 +156,21 @@ class Animat(object):
             Leg(stride, FootState.GROUND, x, foot_lift),  # Back left
             Leg(stride, FootState.SWING, x, foot_lift),  # Back right
         ]
+        #Question: how do we account for more legs? parameter? constant set at 2?
 
     def motion_step(self, new_x: float) -> Tuple[float, List[Tuple[float, float]]]:
+        """
+        Given a final destination, calls motion step on each component leg,
+        collecting information on each leg's position.
 
+        Args:
+            new_x (float): new position where movement ends
+
+        Returns:
+            Tuple[float, List[Tuple[float, float]]]: 
+                - float: updates self.hip_x and returns it
+                - List: array of leg positions
+        """
         # TODO: change to body
         self.hip_x = new_x
 
@@ -136,11 +180,32 @@ class Animat(object):
         return self.hip_x, leg_poses
 
     def generate_poses(self, num_steps: int, final_x: float) -> Poses:
-        xs = np.linspace(self.hip_x, final_x, num_steps)
+        """
+        Given a final position and the number of steps to get there, compiles
+        a list of each position needed to get to final destination. 
+
+        Args:
+            num_steps (int): number of steps needed to get to final destination
+            final_x (float): final destination
+
+        Returns:
+            Poses: result of calling motion_step on animat, which in turn calls motion_step
+            for each leg. Lists positions of all legs at every step.
+        """        
+        xs = np.linspace(self.hip_x, final_x, num_steps) #breaks down distance depending on num_steps
         poses = [self.motion_step(x) for x in xs]
         return poses
 
     def create_actors(self, ax: plt.Axes) -> Actors:
+        """
+        TODO: I don't understand the function we extend, so don't understand this one
+
+        Args:
+            ax (plt.Axes): [description]
+
+        Returns:
+            Actors: [description]
+        """        
         # TODO: create body actors
 
         actors = []
@@ -150,13 +215,30 @@ class Animat(object):
         return actors
 
     def update_actors(self, actors: Actors, poses: Poses, frame_index: int) -> None:
+        """
+        Given a list of poses and a frame index, sets the leg positions to appropriate values
+        for that frame.
 
+        Args:
+            actors (Actors): [description]
+            poses (Poses): list of all poses in all frames, including hip and foot positions in (hip, [foot_pos]) format
+            frame_index (int): one specific frame that is being used, from poses
+        """        
         hip_x, foot_poses = poses[frame_index]
         for leg_ln, (foot_x, foot_y) in zip(actors, foot_poses):
             leg_ln.set_data([hip_x, foot_x], [1, foot_y])
 
     def animate(self, num_frames, final_x):
+        """
+        TODO
 
+        Args:
+            num_frames ([type]): [description]
+            final_x ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
         # TODO: configurable?
         ylim = [-0.5, 1.5]
 
@@ -213,7 +295,17 @@ HTML(animation.to_jshtml())
 from math import atan2, cos, degrees, pi, sin, sqrt
 
 
-def simplify_angle(angle) -> float:
+def simplify_angle(angle: float) -> float:
+    """
+    Simplifies by reducing the size of the angle. 
+    Unsure about the logic here?
+
+    Args:
+        angle (float): initial angle to be simplified
+
+    Returns:
+        float: simplified angle
+    """    
     angle = angle % (2.0 * pi)
     if angle < -pi:
         angle += 2.0 * pi
@@ -224,12 +316,25 @@ def simplify_angle(angle) -> float:
 
 class Pt:
     def __init__(self, x: float, y: float) -> None:
+        '''
+        Sets the x and y positions based on parameters
+        '''
         self.x, self.y = x, y
 
     def __sub__(self, other) -> Pt:
+        '''
+        subtracts another point from current, returns tuple = 
+        (diff_x, diff_y)
+        '''
         return Pt(self.x - other.x, self.y - other.y)
 
     def __str__(self) -> str:
+        """
+        Returns a string representation that lists x and y positions
+
+        Returns:
+            str: f"({self.x:.3f}, {self.y:.3f})"
+        """        
         return f"({self.x:.3f}, {self.y:.3f})"
 
     def __repr__(self) -> str:
@@ -239,7 +344,18 @@ class Pt:
         return sqrt(self.x * self.x + self.y * self.y)
 
     @classmethod
-    def angle_between(cls, pt1, pt2) -> float:
+    def angle_between(cls: Pt, pt1: Pt, pt2: Pt) -> float:
+        """computes simplified angle between two points
+
+
+        Args:
+            cls (Pt): the class of object; important for classmethod
+            pt1 (Pt): first point being compared
+            pt2 (Pt): second point being compared
+
+        Returns:
+            float: simplified angle representing distance between the two points
+        """              
         pt1_angle = atan2(pt1.y, pt1.x)
         pt2_angle = atan2(pt2.y, pt2.x)
         return simplify_angle((pt2_angle - pt1_angle) % (2 * pi))
@@ -252,7 +368,14 @@ class HingedSegment:
         length: float,
         parent_or_location: Union[HingedSegment, Pt],
     ) -> None:
+        """takes a global angle, decides if it has a parent, then creates a HS object
 
+        Args:
+            global_angle (float): TODO: from what?
+            length (float): length of segment
+            parent_or_location (Union[HingedSegment, Pt]): either contains a parent HS object, or a starting
+                location if no parent is given
+        """
         # Angle is always with respect to the global x-y coordinate system
         self.ang = global_angle
         self.len = length
@@ -263,32 +386,56 @@ class HingedSegment:
         self.chi: Optional[HingedSegment] = None
 
         if isinstance(parent_or_location, HingedSegment):
+            #if what was passed in is a HS, it is a parent
             self.par = parent_or_location
             self.update_from_parent(0)
         else:
+            #here, the parent_or_location var doesn't have type HS, so it can't be a parent.
+            #  it contains a location
             self.par = None
             self.loc = parent_or_location
 
     def __str__(self) -> str:
+        """Represents object as string containing info on location and angle
+
+        Returns:
+            str: str(self.loc) + f" @ {degrees(self.ang): .3f}°"
+        """        
         return str(self.loc) + f" @ {degrees(self.ang): .3f}°"
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def update_from_parent(self, delta_angle: float) -> None:
+        """propagates changes in angle from parent HS to child HS objects
+
+        Args:
+            delta_angle (float): amount by which angle will change
+        """        
         self.ang += delta_angle
         self.loc.x = self.par.loc.x + self.par.len * cos(self.par.ang)
         self.loc.y = self.par.loc.y + self.par.len * sin(self.par.ang)
         if self.chi:
+            #update child if present
             self.chi.update_from_parent(delta_angle)
 
     def set_new_angle(self, new_angle: float) -> None:
-        delta_angle = new_angle - self.ang
+        """change self angle to parameter and propagate that change through children
+
+        Args:
+            new_angle (float): new angle for this segment
+        """        
+        delta_angle = new_angle - self.ang # the difference between new and old angles
         self.ang = new_angle
         if self.chi:
             self.chi.update_from_parent(delta_angle)
 
     def get_tip_location(self) -> Pt:
+        """Gets the x and y location of the tip of each segment
+
+        Returns:
+            Pt: position of tip
+        """        
         tip = Pt(0, 0)
         tip.x = self.loc.x + self.len * cos(self.ang)
         tip.y = self.loc.y + self.len * sin(self.ang)
