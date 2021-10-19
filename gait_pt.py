@@ -25,11 +25,12 @@ Poses = List[Tuple[float, List[Tuple[float, float]]]]
 
 
 class FootState(IntEnum):
-    '''
+    """
     Enumerates FootStates using integers 1 - 5.
 
     GROUND (5) is being deprecated in favor of (TODO)?
-    '''
+    """
+
     SWING = 1
     LIFT = 2
     THRUST = 3
@@ -41,9 +42,9 @@ class FootState(IntEnum):
 
 # Start with just one leg
 def walk_footfalls():
-    '''
-    TODO: define walk pattern as sequence of states for each leg   
-    '''
+    """
+    TODO: define walk pattern as sequence of states for each leg
+    """
     ...
 
 
@@ -55,7 +56,7 @@ class Leg(object):
         self, stride: float, state: FootState, foot_x: float, swing_y: float
     ) -> None:
         """
-        Given stride length, foot state, and foot position (x and y), creates a 
+        Given stride length, foot state, and foot position (x and y), creates a
         leg object.
 
         Args:
@@ -63,7 +64,7 @@ class Leg(object):
             state (FootState): FootState IntEnum; 1-4 supported
             foot_x (float): horizontal position of foot
             swing_y (float): vertical position of foot, if swinging
-        """    
+        """
 
         super().__init__()
         self.state = state
@@ -73,65 +74,65 @@ class Leg(object):
         self.swing_y = swing_y
 
     def is_swinging(self) -> bool:
-        '''
+        """
         Returns true if foot state is currently 'SWING'
-        '''
+        """
         return self.state == FootState.SWING
 
     def not_swinging(self) -> bool:
-        '''
+        """
         Returns true if not is_swinging()
-        '''
+        """
         return not self.is_swinging()
 
-    def motion_step(self, hip_x: float, foot_delta: float = 8 / (32/3)) -> Tuple[float, float]:
+    def motion_step(self, hip_x: float, foot_delta: float) -> Tuple[float, float]:
         """
         Given hip position (x) and using is_swinging results, set the new footstate
         or continue moving the foot, depending on whether a stride is completed.
 
         Args:
             hip_x (float): Position of hip
-            foot_delta (float, optional): Amount to move foot. Added as parameter
-            per todo comment. Defaults to 8/(32/3), which was original amount in 
-            previous version of code.
+            foot_delta (float): Amount to move foot.
 
         Returns:
-            Tuple[float, float]: 
+            Tuple[float, float]:
                 - self.foot_x = current horizontal position of foot
                 - self.swing_y = current height of foot
                 - 0 if not self.is_swinging(): no change in position anticipated
-        
-        """        
-       
+
+        """
         if self.not_swinging() and self.foot_x < hip_x - self.half_stride:
             # start swinging the foot
             self.state = FootState.SWING
         elif self.not_swinging():
-            #not swinging and doesn't need to
+            # not swinging and doesn't need to
             pass
         elif self.is_swinging() and self.foot_x > hip_x + self.half_stride:
-            #completed the stride
+            # completed the stride
             self.state = FootState.GROUND
         else:
             # if moving and not completed the stride, move a little bit more
             self.foot_x += foot_delta
 
-        #TODO: should this return 0,0 if not swinging?
-        return self.foot_x, self.swing_y if self.is_swinging() else 0
+        return self.foot_x, self.swing_y if self.is_swinging() else (0, 0)
 
-    def create_actors(self, ax: plt.Axes) -> Actors:
+    def create_actors(self, ax: plt.Axes, line_width: int) -> Actors:
         """
-        TODO: I don't really understand this section..
+        Creates an empty leg element, to be moved by other functions. In matplotlib, we can create these actors
+        and move them instead of creating a new image for each plot.
 
         Args:
-            ax (plt.Axes): [description]
+            ax (plt.Axes): the graph to plot on
+            linewidth (int): width of the line element being created
 
         Returns:
             Actors: [description]
-        """        
-        
-        # TODO: linewidth as parameter
-        (leg_ln,) = ax.plot([], [], marker="o", linewidth=5) #creates empty line bounded by "o" character
+        """
+
+        # TODO: linewidth as parameter - DONE, please verify
+        (leg_ln,) = ax.plot(
+            [], [], marker="o", linewidth=line_width
+        )  # creates empty line bounded by "o" character
         return [leg_ln]
 
 
@@ -146,7 +147,7 @@ class Animat(object):
             stride (float): length of a stride
             initial_x (float): initial position of object's hip
             foot_lift (float): vertical distance from ground when swinging (swing_y in Leg)
-        """        
+        """
         super().__init__()
 
         self.hip_x = initial_x
@@ -156,7 +157,7 @@ class Animat(object):
             Leg(stride, FootState.GROUND, x, foot_lift),  # Back left
             Leg(stride, FootState.SWING, x, foot_lift),  # Back right
         ]
-        #Question: how do we account for more legs? parameter? constant set at 2?
+        # Question: how do we account for more legs? parameter? constant set at 2?
 
     def motion_step(self, new_x: float) -> Tuple[float, List[Tuple[float, float]]]:
         """
@@ -167,7 +168,7 @@ class Animat(object):
             new_x (float): new position where movement ends
 
         Returns:
-            Tuple[float, List[Tuple[float, float]]]: 
+            Tuple[float, List[Tuple[float, float]]]:
                 - float: updates self.hip_x and returns it
                 - List: array of leg positions
         """
@@ -175,14 +176,14 @@ class Animat(object):
         self.hip_x = new_x
 
         # TODO: how to collect pose info for multiple legs and multiple joints? (dict?)
-        leg_poses = [leg.motion_step(self.hip_x) for leg in self.legs]
+        leg_poses = [leg.motion_step(self.hip_x, 8 / (32 / 3)) for leg in self.legs]
 
         return self.hip_x, leg_poses
 
     def generate_poses(self, num_steps: int, final_x: float) -> Poses:
         """
         Given a final position and the number of steps to get there, compiles
-        a list of each position needed to get to final destination. 
+        a list of each position needed to get to final destination.
 
         Args:
             num_steps (int): number of steps needed to get to final destination
@@ -191,26 +192,29 @@ class Animat(object):
         Returns:
             Poses: result of calling motion_step on animat, which in turn calls motion_step
             for each leg. Lists positions of all legs at every step.
-        """        
-        xs = np.linspace(self.hip_x, final_x, num_steps) #breaks down distance depending on num_steps
+        """
+        xs = np.linspace(
+            self.hip_x, final_x, num_steps
+        )  # breaks down distance depending on num_steps
         poses = [self.motion_step(x) for x in xs]
         return poses
 
-    def create_actors(self, ax: plt.Axes) -> Actors:
+    def create_actors(self, ax: plt.Axes, line_width: int) -> Actors:
         """
-        TODO: I don't understand the function we extend, so don't understand this one
+        Create actors for all legs in animated animal, by calling the corresponding function in leg module.
 
         Args:
-            ax (plt.Axes): [description]
+            ax (plt.Axes): graph to plot on
+            line_width (int): width of each of these lines
 
         Returns:
             Actors: [description]
-        """        
+        """
         # TODO: create body actors
 
         actors = []
         for leg in self.legs:
-            actors.extend(leg.create_actors(ax))
+            actors.extend(leg.create_actors(ax, line_width))
 
         return actors
 
@@ -223,31 +227,35 @@ class Animat(object):
             actors (Actors): [description]
             poses (Poses): list of all poses in all frames, including hip and foot positions in (hip, [foot_pos]) format
             frame_index (int): one specific frame that is being used, from poses
-        """        
+        """
         hip_x, foot_poses = poses[frame_index]
         for leg_ln, (foot_x, foot_y) in zip(actors, foot_poses):
             leg_ln.set_data([hip_x, foot_x], [1, foot_y])
 
-    def animate(self, num_frames, final_x):
-        """
-        TODO
+    def animate(self, num_frames, final_x, ylim_min=-0.5, ylim_max=1.5):
+        """[summary]
 
         Args:
             num_frames ([type]): [description]
             final_x ([type]): [description]
+            ylim_min (float, optional): [description]. Defaults to -0.5.
+            ylim_max (float, optional): [description]. Defaults to 1.5.
 
         Returns:
             [type]: [description]
         """
-        # TODO: configurable?
-        ylim = [-0.5, 1.5]
+        # TODO: configurable? | Kev's note: does the below work for configurability?
+        # ylim = [-0.5, 1.5]
+        ylim = [ylim_min, ylim_max]
 
         # Create initial figure, axes, and ground line
         fig, ax = plt.subplots()
         xlim = [self.hip_x - 1, final_x + 1]
         ax.plot(xlim, [0, 0], "--", linewidth=5)
 
-        actors = self.create_actors(ax)
+        leg_linewidth = 5
+
+        actors = self.create_actors(ax, leg_linewidth)
         poses = self.generate_poses(num_frames, final_x)
 
         def init():
@@ -292,23 +300,21 @@ HTML(animation.to_jshtml())
 
 # %%
 
-#Section 2: Inverse Kinematics
+# Section 2: Inverse Kinematics
 
 from math import atan2, cos, degrees, pi, sin, sqrt
 
 
 def simplify_angle(angle: float) -> float:
     """
-    Simplifies by reducing the size of the angle. 
-    Unsure about the logic here?
-    TODO: change name to better reflect
+    Simplifies by reducing the size of the angle.
 
     Args:
         angle (float): initial angle to be simplified
 
     Returns:
         float: simplified angle
-    """    
+    """
     angle = angle % (2.0 * pi)
     if angle < -pi:
         angle += 2.0 * pi
@@ -319,16 +325,16 @@ def simplify_angle(angle: float) -> float:
 
 class Pt:
     def __init__(self, x: float, y: float) -> None:
-        '''
+        """
         Sets the x and y positions based on parameters
-        '''
+        """
         self.x, self.y = x, y
 
     def __sub__(self, other) -> Pt:
-        '''
-        subtracts another point from current, returns tuple = 
+        """
+        subtracts another point from current, returns tuple =
         (diff_x, diff_y)
-        '''
+        """
         return Pt(self.x - other.x, self.y - other.y)
 
     def __str__(self) -> str:
@@ -337,7 +343,7 @@ class Pt:
 
         Returns:
             str: f"({self.x:.3f}, {self.y:.3f})"
-        """        
+        """
         return f"({self.x:.3f}, {self.y:.3f})"
 
     def __repr__(self) -> str:
@@ -346,7 +352,7 @@ class Pt:
     def magnitude(self) -> float:
         return sqrt(self.x * self.x + self.y * self.y)
 
-    #equiv to "static" in C or Java
+    # equiv to "static" in C or Java
     @classmethod
     def angle_between(cls: Pt, pt1: Pt, pt2: Pt) -> float:
         """computes simplified angle between two points
@@ -358,7 +364,7 @@ class Pt:
 
         Returns:
             float: simplified angle representing distance between the two points
-        """              
+        """
         pt1_angle = atan2(pt1.y, pt1.x)
         pt2_angle = atan2(pt2.y, pt2.x)
         return simplify_angle((pt2_angle - pt1_angle) % (2 * pi))
@@ -389,11 +395,11 @@ class HingedSegment:
         self.chi: Optional[HingedSegment] = None
 
         if isinstance(parent_or_location, HingedSegment):
-            #if what was passed in is a HS, it is a parent
+            # if what was passed in is a HS, it is a parent
             self.par = parent_or_location
             self.update_from_parent(0)
         else:
-            #here, the parent_or_location var doesn't have type HS, so it can't be a parent.
+            # here, the parent_or_location var doesn't have type HS, so it can't be a parent.
             #  it contains a location
             self.par = None
             self.loc = parent_or_location
@@ -403,7 +409,7 @@ class HingedSegment:
 
         Returns:
             str: str(self.loc) + f" @ {degrees(self.ang): .3f}°"
-        """        
+        """
         return str(self.loc) + f" @ {degrees(self.ang): .3f}°"
 
     def __repr__(self) -> str:
@@ -414,12 +420,12 @@ class HingedSegment:
 
         Args:
             delta_angle (float): amount by which angle will change
-        """        
+        """
         self.ang += delta_angle
         self.loc.x = self.par.loc.x + self.par.len * cos(self.par.ang)
         self.loc.y = self.par.loc.y + self.par.len * sin(self.par.ang)
         if self.chi:
-            #update child if present
+            # update child if present
             self.chi.update_from_parent(delta_angle)
 
     def set_new_angle(self, new_angle: float) -> None:
@@ -427,8 +433,8 @@ class HingedSegment:
 
         Args:
             new_angle (float): new angle for this segment
-        """        
-        delta_angle = new_angle - self.ang # the difference between new and old angles
+        """
+        delta_angle = new_angle - self.ang  # the difference between new and old angles
         self.ang = new_angle
         if self.chi:
             self.chi.update_from_parent(delta_angle)
@@ -438,7 +444,7 @@ class HingedSegment:
 
         Returns:
             Pt: position of tip
-        """        
+        """
         tip = Pt(0, 0)
         tip.x = self.loc.x + self.len * cos(self.ang)
         tip.y = self.loc.y + self.len * sin(self.ang)
@@ -459,11 +465,11 @@ class SegmentChain:
         Args:
             base (Pt): location of hip
             num_segs (int): number of HS's present
-            angles (Union[float, List[float]]): list of angles for each segment. Can be one representative angle or a list 
+            angles (Union[float, List[float]]): list of angles for each segment. Can be one representative angle or a list
                 eq in length to num_segs
             lengths (Union[float, List[float]]): list of lengths of each segment
             save_state (Optional[bool], optional): Specifies whether to mark down positional states for each movement. Defaults to False.
-        """    
+        """
         # Expand angles if single number
         assert isinstance(angles, (float, int)) or len(angles) == num_segs
         angles = [angles] * num_segs if isinstance(angles, (float, int)) else angles
@@ -486,7 +492,7 @@ class SegmentChain:
         self.effector = self.segments[-1].get_tip_location()
 
         self.save_state = save_state
-        self.states = [] #states may be added to later with add_state
+        self.states = []  # states may be added to later with add_state
         if save_state:
             self.add_state()
 
@@ -501,7 +507,7 @@ class SegmentChain:
 
         Returns:
             Optional[List[List[Tuple[float, float]]]]: optionally returns self.states if self.save_states is set
-        """    
+        """
         for _ in range(num_steps):
             self.step_to_goal(goal)
 
@@ -513,14 +519,13 @@ class SegmentChain:
 
         Args:
             goal (Pt): final point to reach, may not be reached this iteration
-        """        
+        """
         for seg in reversed(self.segments):
             to_effector = self.effector - seg.loc
             to_goal = goal - seg.loc
 
             new_angle = Pt.angle_between(to_effector, to_goal)
             seg.set_new_angle(new_angle + seg.ang)
-
             self.effector = self.segments[-1].get_tip_location()
 
             # TODO: Check for termination by comparing new x,y to goal
@@ -534,14 +539,16 @@ class SegmentChain:
             if self.save_state:
                 self.add_state()
 
-    def add_state(self):        
-        """add a state for each segment containing info about their x,y coords and append that sublist 
-            to the main self.states value
-        """        
+    def add_state(self):
+        """add a state for each segment containing info about their x,y coords and append that sublist
+        to the main self.states value
+        """
         step_states = []
         for seg in self.segments:
             step_states.append((seg.loc.x, seg.loc.y))
-        step_states.append((self.effector.x, self.effector.y)) #effector = tip of last segment in chain
+        step_states.append(
+            (self.effector.x, self.effector.y)
+        )  # effector = tip of last segment in chain
         self.states.append(step_states)
 
     def get_states(self) -> List[List[Tuple[float, float]]]:
@@ -549,7 +556,7 @@ class SegmentChain:
 
         Returns:
             List[List[Tuple[float, float]]]: all states we've captured so far
-        """        
+        """
         return self.states
 
     def plot(self, goal: Optional[Pt] = None) -> None:
@@ -557,7 +564,7 @@ class SegmentChain:
 
         Args:
             goal (Optional[Pt], optional): goal point, optional if we want to plot it. Defaults to None.
-        """        
+        """
         # All actuated segments
         for p1, p2 in zip(self.segments, self.segments[1:]):
             plt.plot([p1.loc.x, p2.loc.x], [p1.loc.y, p2.loc.y])
@@ -580,7 +587,7 @@ base = Pt(0, 0)
 goal = Pt(1.5, 0.8)
 
 num_segs = 3
-seg_angle = -pi / 2 #next segments are vertically below
+seg_angle = -pi / 2  # next segments are vertically below
 # seg_angle = (0, -pi/2, -pi/2)
 seg_length = 1
 chain = SegmentChain(Pt(0, 3), num_segs, seg_angle, seg_length, True)
