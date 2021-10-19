@@ -42,7 +42,7 @@ class FootState(IntEnum):
 # Start with just one leg
 def walk_footfalls():
     '''
-    TODO   
+    TODO: define walk pattern as sequence of states for each leg   
     '''
     ...
 
@@ -131,7 +131,7 @@ class Leg(object):
         """        
         
         # TODO: linewidth as parameter
-        (leg_ln,) = ax.plot([], [], marker="o", linewidth=5)
+        (leg_ln,) = ax.plot([], [], marker="o", linewidth=5) #creates empty line bounded by "o" character
         return [leg_ln]
 
 
@@ -145,7 +145,7 @@ class Animat(object):
         Args:
             stride (float): length of a stride
             initial_x (float): initial position of object's hip
-            foot_lift (float): TODO: want to confirm that this is max distance from ground
+            foot_lift (float): vertical distance from ground when swinging (swing_y in Leg)
         """        
         super().__init__()
 
@@ -292,6 +292,8 @@ HTML(animation.to_jshtml())
 
 # %%
 
+#Section 2: Inverse Kinematics
+
 from math import atan2, cos, degrees, pi, sin, sqrt
 
 
@@ -299,6 +301,7 @@ def simplify_angle(angle: float) -> float:
     """
     Simplifies by reducing the size of the angle. 
     Unsure about the logic here?
+    TODO: change name to better reflect
 
     Args:
         angle (float): initial angle to be simplified
@@ -343,10 +346,10 @@ class Pt:
     def magnitude(self) -> float:
         return sqrt(self.x * self.x + self.y * self.y)
 
+    #equiv to "static" in C or Java
     @classmethod
     def angle_between(cls: Pt, pt1: Pt, pt2: Pt) -> float:
         """computes simplified angle between two points
-
 
         Args:
             cls (Pt): the class of object; important for classmethod
@@ -371,7 +374,7 @@ class HingedSegment:
         """takes a global angle, decides if it has a parent, then creates a HS object
 
         Args:
-            global_angle (float): TODO: from what?
+            global_angle (float): angle in relation to y axis and ground
             length (float): length of segment
             parent_or_location (Union[HingedSegment, Pt]): either contains a parent HS object, or a starting
                 location if no parent is given
@@ -451,11 +454,21 @@ class SegmentChain:
         lengths: Union[float, List[float]],
         save_state: Optional[bool] = False,
     ) -> None:
+        """chain of HingedSegments
+
+        Args:
+            base (Pt): location of hip
+            num_segs (int): number of HS's present
+            angles (Union[float, List[float]]): list of angles for each segment. Can be one representative angle or a list 
+                eq in length to num_segs
+            lengths (Union[float, List[float]]): list of lengths of each segment
+            save_state (Optional[bool], optional): Specifies whether to mark down positional states for each movement. Defaults to False.
+        """    
         # Expand angles if single number
         assert isinstance(angles, (float, int)) or len(angles) == num_segs
         angles = [angles] * num_segs if isinstance(angles, (float, int)) else angles
 
-        # Expand angles if single number
+        # Expand lengths if single number
         assert isinstance(lengths, (float, int)) or len(lengths) == num_segs
         lengths = [lengths] * num_segs if isinstance(lengths, (float, int)) else lengths
 
@@ -473,14 +486,22 @@ class SegmentChain:
         self.effector = self.segments[-1].get_tip_location()
 
         self.save_state = save_state
-        self.states = []
+        self.states = [] #states may be added to later with add_state
         if save_state:
             self.add_state()
 
     def run_steps(
         self, goal: Pt, num_steps: int
     ) -> Optional[List[List[Tuple[float, float]]]]:
-        # TODO: add type
+        """runs step_to_goal for each step in num_steps
+
+        Args:
+            goal (Pt): point to reach in this run
+            num_steps (int): num steps required to get to goal
+
+        Returns:
+            Optional[List[List[Tuple[float, float]]]]: optionally returns self.states if self.save_states is set
+        """    
         for _ in range(num_steps):
             self.step_to_goal(goal)
 
@@ -488,6 +509,11 @@ class SegmentChain:
             return self.states
 
     def step_to_goal(self, goal: Pt) -> None:
+        """adjusts the position of all segments to get one step closer to the goal
+
+        Args:
+            goal (Pt): final point to reach, may not be reached this iteration
+        """        
         for seg in reversed(self.segments):
             to_effector = self.effector - seg.loc
             to_goal = goal - seg.loc
@@ -508,17 +534,30 @@ class SegmentChain:
             if self.save_state:
                 self.add_state()
 
-    def add_state(self):
+    def add_state(self):        
+        """add a state for each segment containing info about their x,y coords and append that sublist 
+            to the main self.states value
+        """        
         step_states = []
         for seg in self.segments:
             step_states.append((seg.loc.x, seg.loc.y))
-        step_states.append((self.effector.x, self.effector.y))
+        step_states.append((self.effector.x, self.effector.y)) #effector = tip of last segment in chain
         self.states.append(step_states)
 
-    def get_states(self):
+    def get_states(self) -> List[List[Tuple[float, float]]]:
+        """self.states contains list of all states we've collected so far. this returns them all
+
+        Returns:
+            List[List[Tuple[float, float]]]: all states we've captured so far
+        """        
         return self.states
 
     def plot(self, goal: Optional[Pt] = None) -> None:
+        """plots a single frame
+
+        Args:
+            goal (Optional[Pt], optional): goal point, optional if we want to plot it. Defaults to None.
+        """        
         # All actuated segments
         for p1, p2 in zip(self.segments, self.segments[1:]):
             plt.plot([p1.loc.x, p2.loc.x], [p1.loc.y, p2.loc.y])
@@ -541,7 +580,7 @@ base = Pt(0, 0)
 goal = Pt(1.5, 0.8)
 
 num_segs = 3
-seg_angle = -pi / 2
+seg_angle = -pi / 2 #next segments are vertically below
 # seg_angle = (0, -pi/2, -pi/2)
 seg_length = 1
 chain = SegmentChain(Pt(0, 3), num_segs, seg_angle, seg_length, True)
