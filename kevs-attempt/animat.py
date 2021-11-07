@@ -72,4 +72,8 @@ class Animat(object):
         self.gait = gait
 
     def update_pos(self):
-        self.pos = self.front_hip  # TODO: should this be repr by front leg?
+        self.pos = self.legs[0].get_pos() # TODO: should this be repr by smth else?
+
+    def move(self, goal):
+
+        # strategy: assign sub-goals to each leg, run through those and return the joint positions
