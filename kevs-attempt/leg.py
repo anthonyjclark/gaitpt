@@ -117,3 +117,55 @@ class Leg(object):
             self.x_delta = new_x
         if new_y:
             self.y_delta = new_y
+
+    @classmethod
+    def equal_len_segs(
+        cls: Leg,
+        total_len: float,
+        num_segs: int,
+        hip: Pt,
+        x_delta: float,
+        y_delta: float,
+        goal: float = None,
+        save_state: bool = False,
+    ) -> Leg:
+        """Create a new leg by making equal length segments
+
+        Args:
+            cls (Leg): [description]
+            total_len (float): [description]
+            num_segs (int): [description]
+            x_delta (float): [description]
+            y_delta (float): [description]
+            goal (float, optional): [description]. Defaults to None.
+            save_state (bool, optional): [description]. Defaults to False.
+
+        Returns:
+            Leg: new leg with equal length segments.
+        """
+
+        assert num_segs > 0
+        assert total_len > 0.0
+
+        seg_len: float = total_len / num_segs
+
+        segments: List(HingedSegment) = []
+
+        # first segment needs to be connected to hip
+        # last segment will be 90 degrees - that's the foot. Others will be at 0
+        first_seg = HingedSegment(0.0, seg_len, hip)
+        segments.append(first_seg)
+        num_segs -= 1
+
+        if num_segs > 1:
+            for seg in range(1, num_segs - 1):
+                # make a hingedsegment for each of these, all with 0 degree angles (straight down)
+                # each will have their parent be the last segment added to our list
+                seg = HingedSegment(0.0, seg_len, segments[-1])
+                segments.append(seg)
+
+        # now for the last segment - the foot
+        last_seg = HingedSegment(90.0, seg_len, segments[-1])
+        segments.append(last_seg)
+
+        return Leg(hip, segments, x_delta, y_delta, goal, save_state)
