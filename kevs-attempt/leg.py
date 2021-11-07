@@ -28,7 +28,12 @@ class Leg(object):
         self.y_delta = y_delta
         self.goal = goal
         self.save_state = save_state
-        self.last_move = segments[-1].get_tip_location()
+        self.segments = segments
+
+        self.pos = segments[
+            -1
+        ].get_tip_location()  # position of foot is considered to be position
+        self.last_move = self.pos
 
     def move(self) -> Optional[list]:
         # moves one bit in the process - maybe not a full step, just as far as its deltas let it
@@ -169,3 +174,6 @@ class Leg(object):
         segments.append(last_seg)
 
         return Leg(hip, segments, x_delta, y_delta, goal, save_state)
+
+    def get_pos(self) -> Pt:
+        return self.segments[-1].get_tip_location()
