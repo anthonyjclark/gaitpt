@@ -177,3 +177,6 @@ class Leg(object):
 
     def get_pos(self) -> Pt:
         return self.segments[-1].get_tip_location()
+
+    def get_hip(self) -> Pt:
+        return self.hip
