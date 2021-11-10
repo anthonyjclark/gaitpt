@@ -1,7 +1,7 @@
 from hinged_segment import HingedSegment  # stops the errors, remove later
 from point import Pt
 from leg import Leg
-from gaits import Gait
+from gaits import Gait, FootState
 
 from typing import List, Tuple, Optional, Union
 from __future__ import annotations
@@ -45,6 +45,7 @@ class Animat(object):
         self.hips = [self.front_hip, self.back_hip]
 
         self.legs: List(Leg) = []  # for legs, order is: fl, fr, bl, br
+        self.leg_angles = []  # same length and order as self.legs
 
         # adding all legs to animat
         curr_hip: int = 0
@@ -72,8 +73,91 @@ class Animat(object):
         self.gait = gait
 
     def update_pos(self):
-        self.pos = self.legs[0].get_pos() # TODO: should this be repr by smth else?
+        self.pos = self.legs[0].get_pos()  # TODO: should this be repr by smth else?
+        return self.pos
 
     def move(self, goal):
 
+        assert self.gait != None
         # strategy: assign sub-goals to each leg, run through those and return the joint positions
+        assert len(self.legs) == len(self.gait)  # TODO: allow for repeating values
+
+        curr_gait = 0
+        legs_done = [0] * len(self.legs)
+
+        # one while loop until you get to the goal. one loop for cycling through the legs and applying their gait
+        while self.update_pos().x < goal:
+
+            if min(legs_done) > 0:
+                # no 0's therefore all legs done. next gait is up. we need to circle around sometimes
+                curr_gait = curr_gait + 1 if curr_gait < len(self.legs) - 1 else 0
+                legs_done = [0] * len(self.legs)  # reset!
+
+            for idx, leg in enumerate(self.legs):
+                # we've already verified that self.legs and self.gait have same length, so apply 1:1
+
+                # if they already have a goal assigned, keep moving and wait for it to return a set of positions
+                if leg.has_goal() and not legs_done[idx] > 0:
+                    # move both performs the move and optionally returns a list if it is done. we check if the list
+                    # was returned so that we know when to assign it a new goal.
+                    leg_angles = leg.move()
+                    if leg_angles != None:
+                        # it finished! we need to provide it a new goal for next time around and mark that it's done
+                        legs_done[idx] = 1
+
+                        leg.set_goal(
+                            self.new_leg_goal(
+                                goal,
+                                self.gait[curr_gait][idx],
+                                (leg.x_delta, leg.y_delta),
+                            )
+                        )
+
+                        self.leg_angles[idx].append(
+                            leg_angles
+                        )  # appends to the list for that particular leg
+
+                    # if no list returned, we're not done moving this leg. keep going on the others, we'll come back around
+                else:
+                    # no goal, so let's calculate what the goals would be for each.
+                    leg.set_goal(
+                        self.new_leg_goal(
+                            goal, self.gait[curr_gait][idx], (leg.x_delta, leg.y_delta)
+                        )
+                    )
+
+    def new_leg_goal(self, overall_goal, gait, leg_deltas, leg: Leg) -> Pt:
+
+        # TODO: set parameter for ground? for now assume y=0 is ground
+        ground_y = 0
+
+        new_goal: Pt = (0, 0)
+
+        y_delt, x_delt = leg_deltas
+        curr_x, curr_y = overall_goal
+
+        if gait == FootState.GROUND:
+            # if ground, same as start, except to move down
+            new_y = (
+                ground_y
+                if (curr_y - y_delt < ground_y) or (curr_y == ground_y)
+                else curr_y - y_delt
+            )
+            new_goal = (curr_x, new_y)
+        elif gait == FootState.SUSPEND:
+            # if suspend, move forward one half delta, not vertically at all (unless to move slightly up)
+            new_y = (
+                curr_y if curr_y > ground_y else y_delt / 2
+            )  # just a tiny shift upwards if touching ground
+            new_x = curr_x + x_delt
+            new_goal = (new_x, new_y)
+        elif gait == FootState.STEP:
+            # the swing will be accounted for later
+            new_x = curr_x + x_delt
+            new_y = ground_y
+            new_goal = (new_x, new_y)
+
+        return new_goal
+
+    def get_angles(self):
+        return self.leg_angles

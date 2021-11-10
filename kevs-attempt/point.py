@@ -1,3 +1,6 @@
+from math import atan2, cos, degrees, pi, sin, sqrt
+
+
 class Pt:
     def __init__(self, x: float, y: float) -> None:
         """
@@ -26,6 +29,17 @@ class Pt:
 
     def magnitude(self) -> float:
         return sqrt(self.x * self.x + self.y * self.y)
+
+    def beyond(self, other) -> bool:
+        """returns true if other is horizontally past self
+
+        Args:
+            other (Pt): another point
+
+        Returns:
+            bool: true if self.x > other.x
+        """
+        return self.x > other.x
 
     # equiv to "static" in C or Java
     @classmethod

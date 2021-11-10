@@ -180,3 +180,6 @@ class Leg(object):
 
     def get_hip(self) -> Pt:
         return self.hip
+
+    def has_goal(self) -> bool:
+        return self.goal != None
