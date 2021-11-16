@@ -86,7 +86,6 @@ class Leg(object):
 
     def get_states(self) -> List[List[Tuple[float, float]]]:
         """self.states contains list of all states we've collected so far. this returns them all
-
         Returns:
             List[List[Tuple[float, float]]]: all states we've captured so far
         """
@@ -135,7 +134,6 @@ class Leg(object):
         save_state: bool = False,
     ) -> Leg:
         """Create a new leg by making equal length segments
-
         Args:
             cls (Leg): [description]
             total_len (float): [description]
@@ -144,7 +142,6 @@ class Leg(object):
             y_delta (float): [description]
             goal (float, optional): [description]. Defaults to None.
             save_state (bool, optional): [description]. Defaults to False.
-
         Returns:
             Leg: new leg with equal length segments.
         """

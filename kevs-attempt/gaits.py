@@ -13,7 +13,7 @@ class FootState(Enum):
 
     GROUND = 1  # no horizontal or vertical movement, except to get to ground as fast as possible
     SUSPEND = 2  # keeps horizontal movement, no vertical movement except to get air if not up already
-    STEP = 3  # performs the full up and down movement of taking a step
+    STEP = 3  # performs the up movement of taking a step
 
 
 class Gait(Enum):
@@ -23,42 +23,37 @@ class Gait(Enum):
     # foot states are front to back, left to right
     WALK = [  # amble takes the same type of steps, will just be sped up
         (FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND)(
-            FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.STEP
-        ),
+        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND),
+        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.STEP),
         (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.GROUND),
     ]
 
     TROT = [
         (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.STEP),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND)(
-            FootState.GROUND, FootState.STEP, FootState.STEP, FootState.NONE
-        ),
+        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
+        (FootState.GROUND, FootState.STEP, FootState.STEP, FootState.GROUND),
         (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
     ]
 
     PACE = [
         (FootState.STEP, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND)(
-            FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP
-        ),
+        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
+        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP),
         (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
     ]
 
     # we're going to assume a left lead for gaits that have either left or right leads
     CANTER = [
         (FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP)(
-            FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND
-        ),
+        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP),
+        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND),
         (FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND),
     ]
 
     GALLOP = [
         (FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP)(
-            FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND
-        ),
+        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP),
+        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND),
         (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.GROUND),
         (FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND),
     ]

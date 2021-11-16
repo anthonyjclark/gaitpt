@@ -42,6 +42,8 @@ class Animat(object):
         self.back_hip: Pt = Pt(initial_x, self.height)  # back legs are at initialx
         self.front_hip: Pt = Pt(initial_x + self.length, self.height)
 
+        self.body = self.midpoint(self.front_hip, self.back_hip)
+
         self.hips = [self.front_hip, self.back_hip]
 
         self.legs: List(Leg) = []  # for legs, order is: fl, fr, bl, br
@@ -73,7 +75,10 @@ class Animat(object):
         self.gait = gait
 
     def update_pos(self):
-        self.pos = self.legs[0].get_pos()  # TODO: should this be repr by smth else?
+        # midpoint between the hips
+        self.front_hip = self.legs[0].get_hip()
+        self.back_hip = self.legs[2].get_hip()
+        self.pos = self.midpoint(self.front_hip, self.back_hip)
         return self.pos
 
     def move(self, goal):
@@ -86,7 +91,7 @@ class Animat(object):
         legs_done = [0] * len(self.legs)
 
         # one while loop until you get to the goal. one loop for cycling through the legs and applying their gait
-        while self.update_pos().x < goal:
+        while self.update_pos()[0] < goal:
 
             if min(legs_done) > 0:
                 # no 0's therefore all legs done. next gait is up. we need to circle around sometimes
@@ -105,19 +110,23 @@ class Animat(object):
                         # it finished! we need to provide it a new goal for next time around and mark that it's done
                         legs_done[idx] = 1
 
-                        leg.set_goal(
-                            self.new_leg_goal(
-                                goal,
-                                self.gait[curr_gait][idx],
-                                (leg.x_delta, leg.y_delta),
-                            )
-                        )
+                        leg.set_goal(None)
+                        # leg.set_goal(
+                        #     self.new_leg_goal(
+                        #         goal,
+                        #         self.gait[curr_gait][idx],
+                        #         (leg.x_delta, leg.y_delta),
+                        #     )
+                        # )
 
                         self.leg_angles[idx].append(
                             leg_angles
                         )  # appends to the list for that particular leg
 
                     # if no list returned, we're not done moving this leg. keep going on the others, we'll come back around
+                elif legs_done[idx] > 0:
+                    # this leg has finished its movement.
+                    continue
                 else:
                     # no goal, so let's calculate what the goals would be for each.
                     leg.set_goal(
@@ -138,11 +147,15 @@ class Animat(object):
 
         if gait == FootState.GROUND:
             # if ground, same as start, except to move down
-            new_y = (
-                ground_y
-                if (curr_y - y_delt < ground_y) or (curr_y == ground_y)
-                else curr_y - y_delt
-            )
+            if curr_y > ground_y:
+                # probably in the middle of a step. continue the step
+                new_x = curr_x + x_delt / 2
+
+            else:
+                # just holding steady
+                new_x = curr_x
+
+            new_y = ground_y
             new_goal = (curr_x, new_y)
         elif gait == FootState.SUSPEND:
             # if suspend, move forward one half delta, not vertically at all (unless to move slightly up)
@@ -152,8 +165,8 @@ class Animat(object):
             new_x = curr_x + x_delt
             new_goal = (new_x, new_y)
         elif gait == FootState.STEP:
-            # the swing will be accounted for later
-            new_x = curr_x + x_delt
+            # takes a step upwards, initiating the swing
+            new_x = curr_x + x_delt / 2
             new_y = ground_y
             new_goal = (new_x, new_y)
 
@@ -161,3 +174,11 @@ class Animat(object):
 
     def get_angles(self):
         return self.leg_angles
+
+    def midpoint(self, pt1, pt2):
+        x1, y1 = pt1
+        x2, y2 = pt2
+        return ((x1 + x2) / 2, (y1 + y2) / 2)
+
+    def get_length(self):
+        return self.length

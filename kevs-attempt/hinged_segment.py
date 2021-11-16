@@ -14,7 +14,7 @@ class HingedSegment:
         length: float,
         parent_or_location: Union[HingedSegment, Pt],
     ) -> None:
-        """takes a global angle, decides if it has a parent, then creates a HS object
+        """Takes a global angle, decides if it has a parent, then creates a HS object.
 
         Args:
             global_angle (float): angle in relation to y axis and ground
@@ -30,6 +30,7 @@ class HingedSegment:
         self.loc = Pt(0, 0)
         self.par: Optional[HingedSegment]
         self.chi: Optional[HingedSegment] = None
+        self.hip = None
 
         if isinstance(parent_or_location, HingedSegment):
             # if what was passed in is a HS, it is a parent
@@ -39,6 +40,7 @@ class HingedSegment:
             # here, the parent_or_location var doesn't have type HS, so it can't be a parent.
             #  it contains a location
             self.par = None
+            self.hip = parent_or_location
             self.loc = parent_or_location
 
     def __str__(self) -> str:
@@ -91,3 +93,9 @@ class HingedSegment:
         tip.x = self.loc.x + self.len * cos(self.ang)
         tip.y = self.loc.y + self.len * sin(self.ang)
         return tip
+
+    def get_hip(self):
+        if self.hip == None:
+            return self.par.get_hip()
+        else:
+            return self.hip

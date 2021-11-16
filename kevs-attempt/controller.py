@@ -47,7 +47,11 @@ def main():
         help="horizontal speed of the animal",
     )
     parser.add_argument(
-        "--ydelta", type=float, nargs=1, default=1, help="vertical speed of the animal"
+        "--ydelta",
+        type=float,
+        nargs=1,
+        default=1,
+        help="vertical speed of the animal",
     )
     parser.add_argument(
         "--segment_lens",
@@ -61,10 +65,26 @@ def main():
         type=List(float),
         nargs=2,
         default=[0, 10],
-        help="start and end of the animals movement",
+        help="start and end of the plot",
     )
 
+    args = parser.parse_args()
+
     # take inputs for gait and speed. TODO: add speed
+
+    # create animat based on arguments
+    animat = Animat(args.range[0], args.xdelta, args.ydelta, 0)
+
+    # set gait and goal for animat; run it to the goal and collect the end states
+    animat.assign_gait(args.gait)
+
+    goal = Pt(args.range[1] - (animat.get_length))
+
+    # TODO: chart out what the states look like
+
+    # animate those states after all collected
+
+    # write states to a csv file
 
     return 0
 
