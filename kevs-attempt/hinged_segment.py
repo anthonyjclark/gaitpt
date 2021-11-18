@@ -1,8 +1,10 @@
-from hinged_segment import HingedSegment  # stops the errors, remove later
+from __future__ import annotations
+
+# from hinged_segment import HingedSegment  # stops the errors, remove later
 from point import Pt
 
 from typing import List, Tuple, Optional, Union
-from __future__ import annotations
+
 
 from math import atan2, cos, degrees, pi, sin, sqrt
 

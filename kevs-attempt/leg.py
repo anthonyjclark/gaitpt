@@ -1,8 +1,10 @@
+from __future__ import annotations
+from matplotlib.pyplot import step
 from hinged_segment import HingedSegment  # stops the errors, remove later
 from point import Pt
 
 from typing import List, Tuple, Optional, Union
-from __future__ import annotations
+
 
 from math import atan2, cos, degrees, pi, sin, sqrt
 
@@ -76,11 +78,20 @@ class Leg(object):
         to the main self.states value
         """
         step_states = []
-        for seg in self.segments:
-            step_states.append((seg.loc.x, seg.loc.y))
+
+        # first one starts at the hip
         step_states.append(
-            (self.effector.x, self.effector.y)
-        )  # effector = tip of last segment in chain
+            ([self.hip.x, self.hip.y], [self.segments[0].loc.x, self.segments[0].loc.x])
+        )
+
+        for seg in self.segments[1:]:
+            step_states.append([seg.par.loc.x, seg.par.loc.y], [seg.loc.x, seg.loc.y])
+
+        # for seg in self.segments:
+        #     step_states.append(([seg.par.loc.x], [seg.loc.x, seg.loc.y]))
+        # step_states.append(
+        #     (self.effector.x, self.effector.y)
+        # )  # effector = tip of last segment in chain
         self.states.append(step_states)
         return step_states
 
@@ -90,28 +101,6 @@ class Leg(object):
             List[List[Tuple[float, float]]]: all states we've captured so far
         """
         return self.states
-
-    # def plot(self, goal: Optional[Pt] = None) -> None:
-    #     """plots a single frame
-
-    #     Args:
-    #         goal (Optional[Pt], optional): goal point, optional if we want to plot it. Defaults to None.
-    #     """
-    #     # All actuated segments
-    #     for p1, p2 in zip(self.segments, self.segments[1:]):
-    #         plt.plot([p1.loc.x, p2.loc.x], [p1.loc.y, p2.loc.y])
-
-    #     # Last joint to the end
-    #     plt.plot(
-    #         [self.segments[-1].loc.x, self.effector.x],
-    #         [self.segments[-1].loc.y, self.effector.y],
-    #     )
-
-    #     # Goal
-    #     if goal:
-    #         plt.plot(goal.x, goal.y, "o")
-
-    #     plt.axis("equal")
 
     def set_goal(self, new_goal: float):
         self.goal = new_goal
@@ -180,3 +169,6 @@ class Leg(object):
 
     def has_goal(self) -> bool:
         return self.goal != None
+
+    def get_segments(self):
+        return self.segments

@@ -8,7 +8,7 @@ class Pt:
         """
         self.x, self.y = x, y
 
-    def __sub__(self, other) -> Pt:
+    def __sub__(self, other):
         """
         subtracts another point from current, returns tuple =
         (diff_x, diff_y)
@@ -43,7 +43,7 @@ class Pt:
 
     # equiv to "static" in C or Java
     @classmethod
-    def angle_between(cls: Pt, pt1: Pt, pt2: Pt) -> float:
+    def angle_between(cls, pt1, pt2) -> float:
         """computes simplified angle between two points
 
         Args:
@@ -57,3 +57,20 @@ class Pt:
         pt1_angle = atan2(pt1.y, pt1.x)
         pt2_angle = atan2(pt2.y, pt2.x)
         return simplify_angle((pt2_angle - pt1_angle) % (2 * pi))
+
+    def simplify_angle(angle: float) -> float:
+        """
+        Simplifies by reducing the size of the angle.
+
+        Args:
+            angle (float): initial angle to be simplified
+
+        Returns:
+            float: simplified angle
+        """
+        angle = angle % (2.0 * pi)
+        if angle < -pi:
+            angle += 2.0 * pi
+        elif angle > pi:
+            angle -= 2.0 * pi
+        return angle

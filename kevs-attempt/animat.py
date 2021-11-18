@@ -1,10 +1,11 @@
+from __future__ import annotations
 from hinged_segment import HingedSegment  # stops the errors, remove later
 from point import Pt
 from leg import Leg
 from gaits import Gait, FootState
 
 from typing import List, Tuple, Optional, Union
-from __future__ import annotations
+
 
 from math import atan2, cos, degrees, pi, sin, sqrt
 
@@ -81,9 +82,14 @@ class Animat(object):
         self.pos = self.midpoint(self.front_hip, self.back_hip)
         return self.pos
 
+    def get_pos(self):
+        return self.pos
+
     def move(self, goal):
 
         assert self.gait != None
+
+        print(f"legs = {self.legs}, gait = {self.gait}")
         # strategy: assign sub-goals to each leg, run through those and return the joint positions
         assert len(self.legs) == len(self.gait)  # TODO: allow for repeating values
 
@@ -176,9 +182,7 @@ class Animat(object):
         return self.leg_angles
 
     def midpoint(self, pt1, pt2):
-        x1, y1 = pt1
-        x2, y2 = pt2
-        return ((x1 + x2) / 2, (y1 + y2) / 2)
+        return ((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2)
 
     def get_length(self):
         return self.length
