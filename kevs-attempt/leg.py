@@ -28,9 +28,10 @@ class Leg(object):
         self.hip = hip
         self.x_delta = x_delta
         self.y_delta = y_delta
-        self.goal = goal
+        self.goal = Pt(goal, 0)  # 0 for ground
         self.save_state = save_state
         self.segments = segments
+        self.effector = Pt(segments[-1].loc.x, segments[-1].loc.y)
 
         self.pos = segments[
             -1

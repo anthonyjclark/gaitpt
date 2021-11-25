@@ -97,7 +97,7 @@ class Animat(object):
         legs_done = [0] * len(self.legs)
 
         # one while loop until you get to the goal. one loop for cycling through the legs and applying their gait
-        while self.update_pos()[0] < goal:
+        while self.update_pos()[0] < goal.x:
 
             if min(legs_done) > 0:
                 # no 0's therefore all legs done. next gait is up. we need to circle around sometimes
@@ -141,7 +141,7 @@ class Animat(object):
                         )
                     )
 
-    def new_leg_goal(self, overall_goal, gait, leg_deltas, leg: Leg) -> Pt:
+    def new_leg_goal(self, overall_goal, gait, leg_deltas) -> Pt:
 
         # TODO: set parameter for ground? for now assume y=0 is ground
         ground_y = 0
@@ -149,7 +149,7 @@ class Animat(object):
         new_goal: Pt = (0, 0)
 
         y_delt, x_delt = leg_deltas
-        curr_x, curr_y = overall_goal
+        curr_x, curr_y = overall_goal.x, overall_goal.y
 
         if gait == FootState.GROUND:
             # if ground, same as start, except to move down

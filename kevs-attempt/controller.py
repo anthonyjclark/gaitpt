@@ -40,10 +40,11 @@ def main(args):
     animat = Animat(args.range[0], args.xdelta, args.ydelta, 0)
 
     # set gait and goal for animat; run it to the goal and collect the end states
-    animat.assign_gait(Gait[args.gait[0]])
+    animat.assign_gait(Gait[args.gait[0]].value)
+    # animat.assign_gait(Gait.WALK)
 
     goal = Pt(args.range[1] - animat.get_length(), 0)
-    animat.assign_gait(args.gait)
+    # animat.assign_gait(args.gait)
 
     # TODO: chart out what the states look like
     animat.move(goal)
