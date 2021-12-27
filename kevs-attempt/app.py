@@ -30,7 +30,11 @@ class App:
         self.ax.set_xlim(0, self.max_x)
 
         st.write(self.name)
-        self.plot = st.pyplot(plt)
+
+        self.plot = st.empty()
+        self.run_btn = st.button(
+            "Run", key="run", help="Set parameters first, then click here to run"
+        )
 
         self.num_actors = st.number_input(
             "Number of Legs", min_value=1, max_value=10, value=4, step=1
@@ -47,13 +51,18 @@ class App:
         self.max_x = st.number_input(
             "Distance To Travel", min_value=10, max_value=100, value=10, step=5
         )
+
         self.ax.set_xlim(0, self.max_x)
 
         for i in range(0, self.num_actors):
             line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
             self.actors.append(line)
 
+        if self.run_btn:
+            self.run()
+
     def run(self):
+        self.plot.pyplot(plt)
 
         actors = self.get_poses(
             self.actors
@@ -91,4 +100,3 @@ class App:
 
 
 app = App()
-app.run()
