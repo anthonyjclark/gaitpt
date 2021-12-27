@@ -5,6 +5,7 @@ from leg import Leg
 from gaits import Gait, FootState
 
 from typing import List, Tuple, Optional, Union
+from icecream import ic
 
 
 from math import atan2, cos, degrees, pi, sin, sqrt
@@ -86,54 +87,82 @@ class Animat(object):
         return self.pos
 
     def move(self, goal):
+        ic(self.body)
 
         assert self.gait != None
 
-        print(f"legs = {self.legs}, gait = {self.gait}")
+        # print(f"legs = {self.legs}, gait = {self.gait}")
         # strategy: assign sub-goals to each leg, run through those and return the joint positions
         assert len(self.legs) == len(self.gait)  # TODO: allow for repeating values
 
         curr_gait = 0
         legs_done = [0] * len(self.legs)
 
+        loops = 0
+
         # one while loop until you get to the goal. one loop for cycling through the legs and applying their gait
         while self.update_pos()[0] < goal.x:
+            loops += 1
+
+            if loops > 10000:
+                break
 
             if min(legs_done) > 0:
                 # no 0's therefore all legs done. next gait is up. we need to circle around sometimes
                 curr_gait = curr_gait + 1 if curr_gait < len(self.legs) - 1 else 0
+
+                # move both hips up and calc new midpoint
+
+                self.back_hip: Pt = Pt(
+                    self.back_hip.x + self.x_delta, self.height
+                )  # back legs are at initialx
+                self.front_hip: Pt = Pt(
+                    self.front_hip.x + self.x_delta + self.length, self.height
+                )
+
+                self.body = self.midpoint(self.front_hip, self.back_hip)
+
                 legs_done = [0] * len(self.legs)  # reset!
 
             for idx, leg in enumerate(self.legs):
+                # ic(idx)  # which leg is moving
                 # we've already verified that self.legs and self.gait have same length, so apply 1:1
 
                 # if they already have a goal assigned, keep moving and wait for it to return a set of positions
                 if leg.has_goal() and not legs_done[idx] > 0:
+                    ic("has goal and not done")
                     # move both performs the move and optionally returns a list if it is done. we check if the list
                     # was returned so that we know when to assign it a new goal.
                     leg_angles = leg.move()
+                    ic(leg_angles)
                     if leg_angles != None:
+                        ic(leg.goal)
                         # it finished! we need to provide it a new goal for next time around and mark that it's done
                         legs_done[idx] = 1
 
-                        leg.set_goal(None)
-                        # leg.set_goal(
-                        #     self.new_leg_goal(
-                        #         goal,
-                        #         self.gait[curr_gait][idx],
-                        #         (leg.x_delta, leg.y_delta),
-                        #     )
-                        # )
-
+                        ic(idx)
+                        ic(self.leg_angles)
                         self.leg_angles[idx].append(
                             leg_angles
                         )  # appends to the list for that particular leg
 
                     # if no list returned, we're not done moving this leg. keep going on the others, we'll come back around
                 elif legs_done[idx] > 0:
+                    ic("leg done")
                     # this leg has finished its movement.
+                    if not leg.has_goal():
+                        leg.set_goal(
+                            self.new_leg_goal(
+                                goal,
+                                self.gait[curr_gait][idx],
+                                (leg.x_delta, leg.y_delta),
+                            )
+                        )
+
                     continue
+
                 else:
+                    ic("no goal")
                     # no goal, so let's calculate what the goals would be for each.
                     leg.set_goal(
                         self.new_leg_goal(
@@ -176,7 +205,7 @@ class Animat(object):
             new_y = ground_y
             new_goal = (new_x, new_y)
 
-        return new_goal
+        return Pt.from_tuple(new_goal)
 
     def get_angles(self):
         return self.leg_angles

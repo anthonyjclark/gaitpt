@@ -7,6 +7,7 @@ from typing import List, Tuple, Optional, Union
 
 
 from math import atan2, cos, degrees, pi, sin, sqrt
+from icecream import ic
 
 
 class Leg(object):
@@ -28,9 +29,9 @@ class Leg(object):
         self.hip = hip
         self.x_delta = x_delta
         self.y_delta = y_delta
-        self.goal = Pt(goal, 0)  # 0 for ground
+        self.goal = goal
         self.save_state = save_state
-        self.segments = segments
+        self.segments: List(HingedSegment) = segments
         self.effector = Pt(segments[-1].loc.x, segments[-1].loc.y)
 
         self.pos = segments[
@@ -46,6 +47,7 @@ class Leg(object):
 
         for seg in reversed(self.segments):
             to_effector = self.effector - seg.loc
+
             to_goal = self.goal - seg.loc
 
             new_angle = Pt.angle_between(to_effector, to_goal)
@@ -56,8 +58,8 @@ class Leg(object):
             reached_goal = True if self.effector == self.goal else False
 
             # Check if still making progress
-            last_x, _ = self.last_move
-            curr_x, _ = self.effector
+            last_x = self.last_move.x
+            curr_x = self.effector.x
             making_progress = True if curr_x > last_x else False
 
             # TODO: constraint to specific axis
@@ -69,9 +71,11 @@ class Leg(object):
             if self.save_state:
                 self.add_state()
 
+            # TODO: this never finishes
             if reached_goal or not making_progress:
                 # these are the cases when animat needs to assign a new action
                 return self.states
+            return self.states
             # we don't want to return something every time - just when we're done moving
 
     def add_state(self):
@@ -82,11 +86,11 @@ class Leg(object):
 
         # first one starts at the hip
         step_states.append(
-            ([self.hip.x, self.hip.y], [self.segments[0].loc.x, self.segments[0].loc.x])
+            ([self.hip.x, self.hip.y], [self.segments[0].loc.x, self.segments[0].loc.y])
         )
 
         for seg in self.segments[1:]:
-            step_states.append([seg.par.loc.x, seg.par.loc.y], [seg.loc.x, seg.loc.y])
+            step_states.append(([seg.par.loc.x, seg.par.loc.y], [seg.loc.x, seg.loc.y]))
 
         # for seg in self.segments:
         #     step_states.append(([seg.par.loc.x], [seg.loc.x, seg.loc.y]))

@@ -1,4 +1,6 @@
 from math import atan2, cos, degrees, pi, sin, sqrt
+from icecream import ic
+from typing import Tuple
 
 
 class Pt:
@@ -13,6 +15,11 @@ class Pt:
         subtracts another point from current, returns tuple =
         (diff_x, diff_y)
         """
+        # print(
+        #     f"type self = {type(self)} | {(type(self.x), type(self.y))}, while other is {type(other)} | {(type(other.x), type(other.y))}"
+        # )
+        # ic(self)
+        # ic(other)
         return Pt(self.x - other.x, self.y - other.y)
 
     def __str__(self) -> str:
@@ -56,7 +63,20 @@ class Pt:
         """
         pt1_angle = atan2(pt1.y, pt1.x)
         pt2_angle = atan2(pt2.y, pt2.x)
-        return simplify_angle((pt2_angle - pt1_angle) % (2 * pi))
+        return Pt.simplify_angle((pt2_angle - pt1_angle) % (2 * pi))
+
+    @classmethod
+    def from_tuple(cls, tuple: Tuple[float, float]):
+        """Creates a point object from a tuple
+
+        Args:
+            tuple (Tuple[float, float]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+        x, y = tuple
+        return Pt(x, y)
 
     def simplify_angle(angle: float) -> float:
         """

@@ -17,13 +17,18 @@ from math import atan2, cos, degrees, pi, sin, sqrt
 
 import argparse
 
-# from icecream import ic
+from icecream import ic
 
 from IPython.display import HTML
+
+import pdb
+
+# pdb.set_trace()
 
 Actors = List[plt.Line2D]
 Poses = List[Tuple[float, List[Tuple[float, float]]]]
 
+# class Controller:
 
 def main(args):
 
@@ -40,11 +45,10 @@ def main(args):
     animat = Animat(args.range[0], args.xdelta, args.ydelta, 0)
 
     # set gait and goal for animat; run it to the goal and collect the end states
-    animat.assign_gait(Gait[args.gait[0]].value)
-    # animat.assign_gait(Gait.WALK)
+    animat.assign_gait(Gait[args.gait].value)
 
+    print(f"goal x is: {args.range[1] - animat.get_length()}")
     goal = Pt(args.range[1] - animat.get_length(), 0)
-    # animat.assign_gait(args.gait)
 
     # TODO: chart out what the states look like
     animat.move(goal)
@@ -79,13 +83,14 @@ def animate(final_x, animat: Animat, ylim_min=-0.5, ylim_max=10):
 
     # Create initial figure, axes, and ground line
     fig, ax = plt.subplots()
-    xlim = [animat.get_pos() - animat.length, final_x + animat.length]
+    xlim = [Pt.from_tuple(animat.get_pos()).x - animat.length, final_x + animat.length]
     ax.plot(xlim, [0, 0], "--", linewidth=5)
 
     leg_linewidth = 5
 
     actors = create_actors(animat.legs, ax, leg_linewidth)
     leg_states = animat.leg_angles
+    ic(leg_states)
 
     def init():
         """Initialize the animation axis."""
@@ -98,9 +103,17 @@ def animate(final_x, animat: Animat, ylim_min=-0.5, ylim_max=10):
         update_actors(actors, poses, frame_index)
         return actors
 
-    anim = FuncAnimation(fig, update, frames=len(leg_states[0]), init_func=init, blit=True, fargs=(actors, leg_states))  # type: ignore
+    anim = FuncAnimation(
+        fig,
+        update,
+        frames=len(leg_states[0]),
+        init_func=init,
+        blit=True,
+        fargs=(actors, leg_states),
+    )  # type: ignore
     return anim
 
+def one_frame()
 
 def create_actors(legs: list(Leg), ax, linewidth):
     actors = []
@@ -137,21 +150,17 @@ parser = argparse.ArgumentParser(
     description="Enter information for gait and speeds requested"
 )
 parser.add_argument(
-    "gait", type=str, nargs=1, help="One of: walk, pace, canter, gallop"
+    "--gait",
+    type=str,
+    nargs=1,
+    default="WALK",
+    help="One of: walk, pace, canter, gallop",
 )
 parser.add_argument(
-    "--xdelta",
-    type=float,
-    nargs=1,
-    default=1,
-    help="horizontal speed of the animal",
+    "--xdelta", type=float, nargs=1, default=1, help="horizontal speed of the animal"
 )
 parser.add_argument(
-    "--ydelta",
-    type=float,
-    nargs=1,
-    default=1,
-    help="vertical speed of the animal",
+    "--ydelta", type=float, nargs=1, default=1, help="vertical speed of the animal"
 )
 parser.add_argument(
     "--segment_lens",
@@ -161,11 +170,7 @@ parser.add_argument(
     help="list of lengths representing each section of the animals leg",
 )
 parser.add_argument(
-    "--range",
-    type=float,
-    nargs=2,
-    default=[0, 10],
-    help="start and end of the plot",
+    "--range", type=float, nargs=2, default=[0, 10], help="start and end of the plot"
 )
 
 args = parser.parse_args()
