@@ -26,9 +26,6 @@ class App:
         self.fig, self.ax = plt.subplots()
 
         # set up axes
-        x_vals = np.arange(
-            0, self.max_x
-        )  # creates vector of evenly spaced values b/n 0 and max
         self.ax.set_ylim(0, self.max_y)
         self.ax.set_xlim(0, self.max_x)
 
@@ -36,8 +33,21 @@ class App:
         self.plot = st.pyplot(plt)
 
         self.num_actors = st.number_input(
-            "Num Legs", min_value=1, max_value=10, value=4, step=1
+            "Number of Legs", min_value=1, max_value=10, value=4, step=1
         )
+
+        self.num_joints = st.number_input(
+            "Number of Joints Per Leg", min_value=1, max_value=10, value=2, step=1
+        )
+
+        self.anim_ht = st.number_input(
+            "Height of Animal", min_value=1, max_value=10, value=4, step=1
+        )
+
+        self.max_x = st.number_input(
+            "Distance To Travel", min_value=10, max_value=100, value=10, step=5
+        )
+        self.ax.set_xlim(0, self.max_x)
 
         for i in range(0, self.num_actors):
             line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
@@ -70,8 +80,10 @@ class App:
         updates = []
 
         for i, actor in enumerate(actors):
-            x = [i] + np.random.randint(i, self.max_y, self.max_x)
-            y = np.random.randint(i, self.max_y / 2, self.max_x)
+            x = [i] + np.random.randint(
+                i, self.max_y, self.num_joints
+            )  # TODO: will cause error when # legs > 7
+            y = np.random.randint(i, self.anim_ht, self.num_joints)
             # st.write(f"shape x = {len(x)}, shape y = {len(y)}")
             updates.append((actor, x, y))
 
