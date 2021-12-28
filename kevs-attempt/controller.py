@@ -30,6 +30,7 @@ Poses = List[Tuple[float, List[Tuple[float, float]]]]
 
 # class Controller:
 
+
 def main(args):
 
     """
@@ -113,22 +114,6 @@ def animate(final_x, animat: Animat, ylim_min=-0.5, ylim_max=10):
     )  # type: ignore
     return anim
 
-def one_frame()
-
-def create_actors(legs: list(Leg), ax, linewidth):
-    actors = []
-
-    for leg in legs:
-        leg_actors = []
-
-        for seg in leg.get_segments():
-            (seg_ln,) = ax.plot([], [], marker="o", linewidth=linewidth)
-            leg_actors.append(seg_ln)
-
-        actors.append(leg_actors)
-
-    return actors
-
 
 def update_actors(actors: Actors, step_states, frame_idx):
     leg_poses = [
@@ -175,4 +160,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-main(args)
+# main(args)
+
+# class Controller:
+

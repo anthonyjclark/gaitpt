@@ -10,6 +10,7 @@ import numpy as np
 import streamlit as st
 import time
 
+from controller import Actors
 
 Actor = Line2D
 Actor_Update = Tuple[Actor, list[float], list[float]]  # an actor plus x and y values
@@ -52,11 +53,17 @@ class App:
             "Distance To Travel", min_value=10, max_value=100, value=10, step=5
         )
 
+        self.speed = st.number_input(
+            "Speed", min_value=0.1, max_value=2.0, value=1.0, step=0.1
+        )
+
+        self.gait = st.selectbox(
+            "Choose a Gait", ("Walk", "Pace", "Canter", "Gallop"), 0, key="gait"
+        )
+
         self.ax.set_xlim(0, self.max_x)
 
-        for i in range(0, self.num_actors):
-            line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
-            self.actors.append(line)
+        self.create_actors()
 
         if self.run_btn:
             self.run()
@@ -81,6 +88,11 @@ class App:
         for actor, x, y in updates:
             actor.set_data(x, y)
         self.plot.pyplot(plt)
+
+    def create_actors(self) -> Actors:
+        for i in range(0, self.num_actors):
+            line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
+            self.actors.append(line)
 
     def get_poses(self, actors: List[Actor]) -> Actor_Update:
         # placeholder - this should be done by controller
