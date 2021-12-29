@@ -96,10 +96,14 @@ class TestLegMovement(unittest.TestCase):
         self.x_delt = 1
         self.y_delt = 1
 
+        for i in range(0, self.num_legs):
+            line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
+            self.actors.append(line)
+
         self.gait = Gait.WALK
 
         self.animat = Animat(
-            self.num_legs, self.num_segs, self.height
+            self.actors, self.num_segs, self.height
         )  # no ground anymore
 
     def testGiveGoal(self):

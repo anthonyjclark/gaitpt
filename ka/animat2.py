@@ -12,5 +12,8 @@ from math import atan2, cos, degrees, pi, sin, sqrt
 
 
 class Animat(object):
-    def __init__(self):
-        pass
+    def __init__(self, actors, num_segs, height):
+        self.num_legs = len(actors)
+        self.num_segs = num_segs
+        self.ht = height
+
