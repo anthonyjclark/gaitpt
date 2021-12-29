@@ -2,6 +2,7 @@
 Purpose: create a streamlit app to plot movement in real time. Later, will also accept inputs for new run
 """
 from abc import update_abstractmethods
+from os import wait
 from re import L
 from typing import List, Tuple
 from matplotlib.lines import Line2D
@@ -76,9 +77,10 @@ class App:
         )  # should start with a blank set of actors instead
 
         self.new_anim(actors)
-        for i in range(100):
+        for i in range(10):
             updates = self.get_poses(self.actors)
             self.animate(updates)
+            time.sleep(3)
 
     def new_anim(self, updates: Actor_Update):
         for actor, x, y in updates:
@@ -101,10 +103,12 @@ class App:
         updates = []
 
         for i, actor in enumerate(actors):
-            x = [i] + np.random.randint(
-                i, self.max_y, self.num_joints
-            )  # TODO: will cause error when # legs > 7
-            y = np.random.randint(i, self.anim_ht, self.num_joints)
+            x = [i] + np.random.randint(0, self.max_x, size=self.num_joints)
+            # TODO: will cause error when # legs > 7
+            y = [int(self.anim_ht)] + np.random.randint(
+                0, self.anim_ht, size=self.num_joints
+            )
+
             # st.write(f"shape x = {len(x)}, shape y = {len(y)}")
             updates.append((actor, x, y))
 
