@@ -12,13 +12,13 @@ from typing import List
 import pytest
 import unittest
 import numpy as np
-from animat2 import Animat
-from leg import Leg
-from gaits import Gait, FootState
+from ka.leg import Leg
+from ka.gaits import Gait, FootState
+from ka.animat2 import Animat
 
 
 class TestCreateLegs(unittest.TestCase):
-    def __init__(self):
+    def setUp(self):
         self.wrong_actors = []
         self.correct_actors = []
         self.correct_num_actors = np.random.randint(1, 10)
@@ -86,7 +86,7 @@ class TestCreateLegs(unittest.TestCase):
 
 
 class TestLegMovement(unittest.TestCase):
-    def __init__(self):
+    def setUp(self):
         # need to initiate a complete Animat and give it a total goal
         self.goal = 10  # assume start at 0
         self.num_legs = 4
@@ -231,4 +231,5 @@ class TestLegMovement(unittest.TestCase):
     THEN    blah
     
 """
-
+if __name__ == "__main__":
+    unittest.main()

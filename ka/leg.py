@@ -1,7 +1,7 @@
 from __future__ import annotations
 from matplotlib.pyplot import step
-from hinged_segment import HingedSegment  # stops the errors, remove later
-from point import Pt
+from ka.hinged_segment import HingedSegment  # stops the errors, remove later
+from ka.point import Pt
 
 from typing import List, Tuple, Optional, Union
 

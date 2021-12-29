@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # from hinged_segment import HingedSegment  # stops the errors, remove later
-from point import Pt
+from ka.point import Pt
 
 from typing import List, Tuple, Optional, Union
 
