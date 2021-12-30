@@ -15,6 +15,7 @@ class HingedSegment:
         global_angle: float,
         length: float,
         parent_or_location: Union[HingedSegment, Pt],
+        max_angle: float = 90.0,
     ) -> None:
         """Takes a global angle, decides if it has a parent, then creates a HS object.
 

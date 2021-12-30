@@ -15,12 +15,17 @@ import numpy as np
 from ka.leg import Leg
 from ka.gaits import Gait, FootState
 from ka.animat2 import Animat
+import matplotlib.pyplot as plt
+from unittest.mock import Mock
 
 
 class TestCreateLegs(unittest.TestCase):
     def setUp(self):
+        self.fig, self.ax = plt.subplots()
         self.wrong_actors = []
         self.correct_actors = []
+        self.line_width = 1
+        self.length = 4
         self.correct_num_actors = np.random.randint(1, 10)
         for i in range(0, self.correct_num_actors):
             line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
@@ -32,38 +37,97 @@ class TestCreateLegs(unittest.TestCase):
         self.wrong_num_segs = 0
         self.correct_num_segs = 2
 
-    def test_incorr_args(self):
+        self.wrong_hips = []
+        self.correct_hips = [
+            (0, self.correct_height),
+            (self.length, self.correct_height),
+        ]
+
+        self.correct_specs = [[1.0, 1.0], [1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]
+
+        # reset the wrapper function so that we start fresh every time
+        Animat.create_legs_from_spec.reset_mock()
+        Animat.create_equal_legs.reset_mock()
+
+    def test_incorr_args_createlegs(self):
         """white-box test
-        GIVEN   0 or fewer actors, invalid height, or invalid num_segments passed
+        GIVEN   0 or fewer hips, or no sets of (hip, seg_specs) or (hip, ht, num_legs, num_segs)
         WHEN    create_legs method is called
         THEN    descriptive error must be raised
         """
 
-        # wrong actors, everything else fine
+        # no hips, everything else is correct
         self.assertRaises(
             ValueError,
             Animat.create_legs(
-                self.wrong_actors, self.correct_height, self.correct_num_segs
+                self.wrong_hips,
+                ht=self.correct_height,
+                num_legs=self.correct_num_actors,
+                num_segs=self.correct_num_segs,
             ),
         )
 
-        # wrong height, everything else fine
+        # hips but nothing else
+        self.assertRaises(ValueError, Animat.create_legs(self.correct_hips))
+
+        # no height for equal len
         self.assertRaises(
             ValueError,
             Animat.create_legs(
-                self.correct_actors, self.wrong_height, self.correct_num_segs
+                self.correct_hips,
+                num_legs=self.correct_num_actors,
+                num_segs=self.correct_num_segs,
             ),
         )
 
-        # wrong num segs, everything else fine
+        # no num legs for equal len
         self.assertRaises(
             ValueError,
             Animat.create_legs(
-                self.correct_actors, self.correct_height, self.wrong_num_segs
+                self.correct_hips,
+                ht=self.correct_height,
+                num_segs=self.correct_num_segs,
             ),
         )
 
-    def test_corr_legs(self):
+        # no num segs for equal len
+        self.assertRaises(
+            ValueError,
+            Animat.create_legs(
+                self.correct_hips,
+                ht=self.correct_height,
+                num_legs=self.correct_num_actors,
+            ),
+        )
+
+        # no hips for with specs
+        self.assertRaises(ValueError, Animat.create_legs(specs=self.correct_specs))
+
+    def test_route_to_specs(self):
+        """black-box
+        GIVEN   hips and leg specs
+        WHEN    create_legs method is called
+        THEN    should call create_legs_from_spec() in order to produce correct result. 
+                create_equal_len should not have been called
+        """
+
+        legs = Animat.create_legs(self.correct_hips, self.correct_specs)
+        Animat.create_legs_from_spec.assert_called_once()
+        Animat.create_equal_legs.assert_not_called()
+
+    def test_route_to_specs(self):
+        """black-box
+        GIVEN   hips, height, num_legs, and num_segs
+        WHEN    create_legs method is called
+        THEN    should call create_equal_legs() in order to produce correct result. 
+                create_from_spec should not have been called
+        """
+
+        legs = Animat.create_legs(self.correct_hips, self.correct_specs)
+        Animat.create_legs_from_spec.assert_not_called()
+        Animat.create_equal_legs.assert_called_once()
+
+    def test_corr_legs_same_segs(self):
         """black-box
         GIVEN   valid arguments
         WHEN    create_legs method is called
@@ -71,8 +135,8 @@ class TestCreateLegs(unittest.TestCase):
         """
 
         # should return a list of Leg
-        legs = Animat.make_legs(
-            self.correct_actors, self.correct_height, self.correct_num_segs
+        legs = Animat.create_equal_legs(
+            len(self.correct_actors), self.correct_height, self.correct_num_segs
         )
 
         assert isinstance(legs, List(Leg))
@@ -83,6 +147,11 @@ class TestCreateLegs(unittest.TestCase):
         # now check correct num segs for each leg
         for leg in legs:
             assert len(leg.segments) == self.correct_num_segs
+
+    def tearDown(self) -> None:
+        self.eqsegs_mock.reset_mock()
+        self.specsegs_mock.reset_mock()
+        return super().tearDown()
 
 
 class TestLegMovement(unittest.TestCase):
@@ -95,6 +164,10 @@ class TestLegMovement(unittest.TestCase):
         self.speed = 1
         self.x_delt = 1
         self.y_delt = 1
+        self.length = 4
+        self.line_width = 1
+        _, self.ax = plt.subplots()
+        self.actors = []
 
         for i in range(0, self.num_legs):
             line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
@@ -103,7 +176,7 @@ class TestLegMovement(unittest.TestCase):
         self.gait = Gait.WALK
 
         self.animat = Animat(
-            self.actors, self.num_segs, self.height
+            self.actors, self.num_segs, self.height, self.length
         )  # no ground anymore
 
     def testGiveGoal(self):

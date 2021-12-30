@@ -11,15 +11,7 @@ from icecream import ic
 
 
 class Leg(object):
-    def __init__(
-        self,
-        hip: Pt,
-        segments: List(HingedSegment),
-        x_delta: float,
-        y_delta: float,
-        goal: float = None,
-        save_state: bool = False,
-    ) -> None:
+    def __init__(self, hip: Pt, segments: List(HingedSegment)) -> None:
 
         super().__init__()  # inherits from object
 
@@ -27,10 +19,6 @@ class Leg(object):
 
         self.states = []  # will return these later
         self.hip = hip
-        self.x_delta = x_delta
-        self.y_delta = y_delta
-        self.goal = goal
-        self.save_state = save_state
         self.segments: List(HingedSegment) = segments
         self.effector = Pt(segments[-1].loc.x, segments[-1].loc.y)
 
@@ -68,8 +56,7 @@ class Leg(object):
             # epsilon = 0.0001
             # trivial_arc_length = 0.00001
 
-            if self.save_state:
-                self.add_state()
+            self.add_state()  # always save the state - why not?
 
             # TODO: this never finishes
             if reached_goal or not making_progress:
@@ -117,16 +104,7 @@ class Leg(object):
             self.y_delta = new_y
 
     @classmethod
-    def equal_len_segs(
-        cls: Leg,
-        total_len: float,
-        num_segs: int,
-        hip: Pt,
-        x_delta: float,
-        y_delta: float,
-        goal: float = None,
-        save_state: bool = False,
-    ) -> Leg:
+    def equal_len_segs(cls: Leg, total_len: float, num_segs: int, hip: Pt) -> Leg:
         """Create a new leg by making equal length segments
         Args:
             cls (Leg): [description]
@@ -164,7 +142,7 @@ class Leg(object):
         last_seg = HingedSegment(90.0, seg_len, segments[-1])
         segments.append(last_seg)
 
-        return Leg(hip, segments, x_delta, y_delta, goal, save_state)
+        return Leg(hip, segments)
 
     def get_pos(self) -> Pt:
         return self.segments[-1].get_tip_location()
