@@ -38,9 +38,29 @@ class Animat(object):
         # leg has taken, with each step being a list of positions for each joint
         self.leg_data = [[]] * self.num_legs
 
+    def create_legs(
+        self,
+        hips: List(Pt),
+        specs: List[List[float]] = None,
+        ht: float = None,
+        num_legs: int = None,
+        num_segs: int = None,
+    ):
+        # hips always needs to be passed in
+        assert len(hips) > 0
+
+        if hips and specs:
+            return self.create_legs_from_spec(hips, specs)
+        elif hips and ht and num_legs and num_segs:
+            return self.create_equal_legs(hips, ht, num_legs, num_segs)
+        else:
+            raise ValueError(
+                "Insufficient arguments. Use either hips and specs or hips, height, num legs, and num segs"
+            )
+
     @check_called
     def create_legs_from_spec(
-        seg_specs: List[List[float]], hips: List[Pt]
+        self, seg_specs: List[List[float]], hips: List[Pt]
     ) -> List[Leg]:
         """creates legs for animat from specs
 
@@ -88,7 +108,7 @@ class Animat(object):
         return legs
 
     @check_called
-    def create_equal_legs(ht, num_legs, num_segs, hips):
+    def create_equal_legs(hips, ht, num_legs, num_segs):
 
         legs = []
 
@@ -97,7 +117,7 @@ class Animat(object):
         max_legs_per_hip = num_legs / len(hips)
 
         for i in range(num_legs):
-            hip = hip[curr_hip]
+            hip = hips[curr_hip]
 
             legs.append(Leg.equal_len_segs(ht, num_segs, hip))
 

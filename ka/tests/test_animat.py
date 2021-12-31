@@ -136,7 +136,10 @@ class TestCreateLegs(unittest.TestCase):
 
         # should return a list of Leg
         legs = Animat.create_equal_legs(
-            len(self.correct_actors), self.correct_height, self.correct_num_segs
+            self.correct_hips,
+            self.correct_height,
+            self.correct_num_actors,
+            self.correct_num_segs,
         )
 
         assert isinstance(legs, List(Leg))
@@ -147,11 +150,6 @@ class TestCreateLegs(unittest.TestCase):
         # now check correct num segs for each leg
         for leg in legs:
             assert len(leg.segments) == self.correct_num_segs
-
-    def tearDown(self) -> None:
-        self.eqsegs_mock.reset_mock()
-        self.specsegs_mock.reset_mock()
-        return super().tearDown()
 
 
 class TestLegMovement(unittest.TestCase):

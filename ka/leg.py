@@ -11,7 +11,7 @@ from icecream import ic
 
 
 class Leg(object):
-    def __init__(self, hip: Pt, segments: List(HingedSegment)) -> None:
+    def __init__(self, hip: Pt, segments: List(HingedSegment)):
 
         super().__init__()  # inherits from object
 
@@ -26,6 +26,10 @@ class Leg(object):
             -1
         ].get_tip_location()  # position of foot is considered to be position
         self.last_move = self.pos
+
+        # attach all the HS's together
+        for i in range(1, len(segments)):
+            segments[i-1].add_child(segments[i])
 
     def move(self) -> Optional[list]:
         # moves one bit in the process - maybe not a full step, just as far as its deltas let it

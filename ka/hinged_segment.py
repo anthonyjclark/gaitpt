@@ -41,10 +41,10 @@ class HingedSegment:
             self.update_from_parent(0)
         else:
             # here, the parent_or_location var doesn't have type HS, so it can't be a parent.
-            #  it contains a location
+            #  it contains the location of a hip
             self.par = None
             self.hip = parent_or_location
-            self.loc = parent_or_location
+            # self.loc = parent_or_location
 
     def __str__(self) -> str:
         """Represents object as string containing info on location and angle
@@ -102,3 +102,6 @@ class HingedSegment:
             return self.par.get_hip()
         else:
             return self.hip
+
+    def add_child(self, chi: HingedSegment):
+        self.chi = chi
