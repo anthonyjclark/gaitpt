@@ -103,10 +103,10 @@ class App:
             actor.set_data([0, 0, 0, 0], [0, 1, 2, 3])
 
         # hip
-        # self.actors[-1].set_data(
-        #     [self.animat.front_hip.x, self.animat.back_hip.x],
-        #     [self.animat.front_hip.y, self.animat.back_hip.y],
-        # )
+        self.actors[-1].set_data(
+            [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
+            [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
+        )
 
         self.plot.pyplot(plt)
 
@@ -115,10 +115,10 @@ class App:
             actor.set_data(x, y)
 
         # hip
-        # self.actors[-1].set_data(
-        #     [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
-        #     [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
-        # )
+        self.actors[-1].set_data(
+            [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
+            [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
+        )
         self.plot.pyplot(plt)
 
     def create_actors(self):

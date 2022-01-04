@@ -46,7 +46,7 @@ class Leg(object):
 
         for seg in self.segs:
             x += seg.end.x
-            y += seg.end.y
+            y -= seg.end.y
             positions.append(Pt(x, y))
 
         print(f"from leg, positions are: {positions}")
