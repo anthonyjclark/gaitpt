@@ -45,11 +45,10 @@ class Leg(object):
         positions = [Pt(x, y)]
 
         for seg in self.segs:
-            x += seg.end.x
+            x -= seg.end.x
             y -= seg.end.y
             positions.append(Pt(x, y))
 
-        print(f"from leg, positions are: {positions}")
         return positions
 
     # def move(self, footstate: FootState):

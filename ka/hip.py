@@ -42,8 +42,7 @@ class Hip(object):
         # legs have delta from hip
 
         actors = []
-
-        print(f"hip says legs are: {self.legs}")
+        print(f" I have {len(self.legs)} legs and am index {self.id}")
 
         for leg in self.legs:
 

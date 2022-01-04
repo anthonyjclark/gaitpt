@@ -76,7 +76,6 @@ class Animat(object):
         self.leg_data.append(states)
 
     def get_last_step_data(self) -> List[List[Pt]]:
-        print(self.leg_data)
         return self.leg_data[-1]
 
     def translate(self, idx: int):
