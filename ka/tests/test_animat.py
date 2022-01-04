@@ -14,7 +14,7 @@ import unittest
 import numpy as np
 from ka.leg import Leg
 from ka.gaits import Gait, FootState
-from ka.animat2 import Animat
+from ka.animat import Animat
 import matplotlib.pyplot as plt
 from unittest.mock import Mock
 
@@ -136,13 +136,11 @@ class TestCreateLegs(unittest.TestCase):
 
         # should return a list of Leg
         legs = Animat.create_equal_legs(
-            self.correct_hips,
-            self.correct_height,
-            self.correct_num_actors,
-            self.correct_num_segs,
+            self.correct_hips, self.correct_height, self.correct_num_segs
         )
 
-        assert isinstance(legs, List(Leg))
+        # TODO: add comments to asserts as below
+        assert isinstance(legs, List(Leg)), "legs did not return a list of legs"
 
         # now check to make sure they're correct - env vironment vars have the right # of legs and segs to check against
         assert len(legs) == self.correct_num_actors

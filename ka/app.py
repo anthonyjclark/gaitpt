@@ -2,7 +2,7 @@
 Purpose: create a streamlit app to plot movement in real time. Later, will also accept inputs for new run
 """
 from abc import update_abstractmethods
-from os import wait
+from os import wait, chdir
 from re import L
 from typing import List, Tuple
 from matplotlib.lines import Line2D
@@ -11,7 +11,10 @@ import numpy as np
 import streamlit as st
 import time
 
-from controller import Actors
+from animat import Animat
+from point import Pt
+
+# from controller import Actors
 
 Actor = Line2D
 Actor_Update = Tuple[Actor, list[float], list[float]]  # an actor plus x and y values
@@ -38,8 +41,10 @@ class App:
             "Run", key="run", help="Set parameters first, then click here to run"
         )
 
-        self.num_actors = st.number_input(
-            "Number of Legs", min_value=1, max_value=10, value=4, step=1
+        self.num_actors = int(
+            st.number_input(
+                "Number of Legs", min_value=1, max_value=10, value=4, step=1
+            )
         )
 
         self.num_joints = st.number_input(
@@ -64,6 +69,10 @@ class App:
 
         self.ax.set_xlim(0, self.max_x)
 
+        # TODO: not hardcoded
+        self.animat = Animat(4, 4, 4, 4)
+        self.animat.add_goal(6)
+
         self.create_actors()
 
         if self.run_btn:
@@ -72,29 +81,74 @@ class App:
     def run(self):
         self.plot.pyplot(plt)
 
-        actors = self.get_poses(
-            self.actors
-        )  # should start with a blank set of actors instead
+        self.new_anim()
 
-        self.new_anim(actors)
+        # TODO: go until done
         for i in range(10):
-            updates = self.get_poses(self.actors)
-            self.animate(updates)
-            time.sleep(3)
 
-    def new_anim(self, updates: Actor_Update):
-        for actor, x, y in updates:
-            actor.set_data(x, y)
+            self.animat.move()
+            updates = self.actorupdate_from_stepdata(
+                self.animat.get_last_step_data(), self.actors
+            )
+            self.animate(updates)
+            time.sleep(1)
+
+        # for i in range(10):
+        #     updates = self.get_poses(self.actors)
+        #     self.animate(updates)
+        #     # time.sleep(3)
+
+    def new_anim(self):
+        for actor in self.actors:
+            actor.set_data([0, 0, 0, 0], [0, 1, 2, 3])
+
+        # hip
+        # self.actors[-1].set_data(
+        #     [self.animat.front_hip.x, self.animat.back_hip.x],
+        #     [self.animat.front_hip.y, self.animat.back_hip.y],
+        # )
+
+        self.plot.pyplot(plt)
 
     def animate(self, updates):
         for actor, x, y in updates:
             actor.set_data(x, y)
+
+        # hip
+        # self.actors[-1].set_data(
+        #     [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
+        #     [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
+        # )
         self.plot.pyplot(plt)
 
-    def create_actors(self) -> Actors:
+    def create_actors(self):
         for i in range(0, self.num_actors):
             line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
             self.actors.append(line)
+
+        # hip actor
+        # line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
+        # self.actors.append(line)
+
+    def actorupdate_from_stepdata(
+        self, data: List[List[Pt]], actors: List[Actor]
+    ) -> List[Actor_Update]:
+        # unzip x,y vals and assign to actors
+
+        updates = []
+
+        for i, leg in enumerate(data):
+
+            x = []
+            y = []
+
+            for pt in leg:
+                x.append(pt.x)
+                y.append(pt.y)
+
+            updates.append((actors[i], x, y))
+
+        return updates
 
     def get_poses(self, actors: List[Actor]) -> Actor_Update:
         # placeholder - this should be done by controller
@@ -109,7 +163,6 @@ class App:
                 0, self.anim_ht, size=self.num_joints
             )
 
-            # st.write(f"shape x = {len(x)}, shape y = {len(y)}")
             updates.append((actor, x, y))
 
         return updates

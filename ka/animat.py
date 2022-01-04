@@ -1,217 +1,210 @@
-from __future__ import annotations
-from hinged_segment import HingedSegment  # stops the errors, remove later
-from point import Pt
-from leg import Leg
-from gaits import Gait, FootState
+# from __future__ import annotation
+import matplotlib.pyplot as plt
+from os import chdir
+from unittest.mock import Mock
 
 from typing import List, Tuple, Optional, Union
 from icecream import ic
 
-
 from math import atan2, cos, degrees, pi, sin, sqrt
+
+from hinged_segment import HingedSegment
+from hip import Hip  # stops the errors, remove later
+from point import Pt
+from leg import Leg
+from gaits import Gait, FootState
+
+Actors = List[plt.Line2D]
+
+
+def check_called(func):
+    return Mock(side_effect=func)
 
 
 class Animat(object):
-    """Represents a 4-legged, double-hipped animal.
+    def __init__(self, num_legs: int, num_segs: int, height: float, length: float):
+        self.num_legs = num_legs
+        self.num_segs = num_segs
+        self.ht = height
+        self.length = length
 
-    Responsible for:
-    - given a goal position, assign sub-goals to each leg for each step necessary
-    - cycle through all progress points needed for each leg to reach goal states
-    - collect joint angles for each progress point for each leg
-    - return joint angles for Coordinator
+        self.goal = None
 
-    """
-
-    def __init__(
-        self, initial_x: float, x_delta: float, y_delta: float, ground_y: float
-    ):
-
-        super().__init__()
-
-        self.x_delta: float = x_delta
-        self.y_delta: float = y_delta
-        self.ground_y: float = ground_y  # TODO: delete? we could just assume 0..
-
-        # TODO: make these passable as parameters?
-        self.height: float = 3
-        self.length: float = 5
-        self.num_leg_segs: int = 4
-        self.num_legs: int = 4
-        self.gait: Gait = None
-
-        # TODO: add support for multiple hips in a list - leading hip will be end of list
-        # the base of the animat will be its two hips - ground assumed to be at 0
-        self.back_hip: Pt = Pt(initial_x, self.height)  # back legs are at initialx
-        self.front_hip: Pt = Pt(initial_x + self.length, self.height)
-
-        self.body = self.midpoint(self.front_hip, self.back_hip)
-
+        # TODO: hip id programmatically
+        # create both hips - front to back
+        back_hip_pos = Pt(0, self.ht)
+        self.back_hip = Hip(back_hip_pos, 1)
+        front_hip_pos = Pt(self.length, self.ht)
+        self.front_hip = Hip(front_hip_pos, 0)
         self.hips = [self.front_hip, self.back_hip]
 
-        self.legs: List(Leg) = []  # for legs, order is: fl, fr, bl, br
-        self.leg_angles = []  # same length and order as self.legs
+        # TODO: fix leg creation methods
+        leg_specs = [
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0],
+        ]
+        # create all the legs - front to back
+        self.legs: List[Leg] = self.create_legs(hips=self.hips, specs=leg_specs)
 
-        # adding all legs to animat
-        curr_hip: int = 0
-        curr_legsonhip: int = 0
-        for _ in range(0, self.num_legs):
+        # one row for each leg, with a list containing all the steps that
+        # leg has taken, with each step being a list of positions for each joint
+        self.leg_data = [[]] * self.num_legs
 
-            new_leg = Leg.equal_len_segs(
-                self.height,
-                self.num_leg_segs,
-                self.hips[curr_hip],
-                self.x_delta,
-                self.y_delta,
-                save_state=True,
-            )  # added with no current goal
+    def add_goal(self, goal: float):
 
-            self.legs.append(new_leg)
+        self.goal = goal
 
-            curr_legsonhip += 1
+        for leg in self.legs:
+            leg.add_goal(goal)
 
-            if curr_legsonhip > 1:
+    def move(self):
+
+        assert self.goal
+
+        for i, hip in enumerate(self.hips):
+            if hip.move():
+                # if needs to translate
+                self.translate(i)
+
+        # TODO: we want to concatenate these lists properly. each should have two lists
+        states = []
+        for hip in self.hips:
+            states += hip.get_leg_positions()
+
+        self.leg_data.append(states)
+
+    def get_last_step_data(self) -> List[List[Pt]]:
+        print(self.leg_data)
+        return self.leg_data[-1]
+
+    def translate(self, idx: int):
+        for i in range(idx, len(self.hips)):
+            self.hips[i].translate()
+
+    def create_legs(
+        self,
+        hips: List[Pt],
+        specs: List[List[float]] = None,
+        ht: float = None,
+        num_legs: int = None,
+        num_segs: int = None,
+    ):
+        # hips always needs to be passed in
+        assert len(hips) > 0
+
+        if hips and specs:
+            return self.create_legs_from_spec(hips, specs)
+        elif hips and ht and num_legs and num_segs:
+            return self.create_equal_legs(hips, ht, num_legs, num_segs)
+        else:
+            raise ValueError(
+                "Insufficient arguments. Use either hips and specs or hips, height, num legs, and num segs"
+            )
+
+    # @check_called
+    def create_legs_from_spec(
+        self, hips: List[Hip], seg_specs: List[List[float]]
+    ) -> List[Leg]:
+        """creates legs for animat from specs
+
+        Args:
+            actors (Actors): [description]
+            ht (float): [description]
+            seg_specs (List[List[float]]): one column for each leg. each has list of values for all segments inside
+            hips (List[Pt]): [description]
+
+        Returns:
+            List[Leg]: [description]
+        """
+
+        legs = []
+        default_globalangle = 0.0  # maybe needs to change for some animals, but not rn
+
+        # TODO: not hardcoded
+        segs1 = [
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+        ]
+        segs2 = [
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        ]
+        segs3 = [
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+        ]
+        segs4 = [
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        ]
+
+        l0 = Leg(segs1, 0)
+        l1 = Leg(segs2, 1)
+        l2 = Leg(segs3, 2)
+        l3 = Leg(segs4, 3)
+
+        legs = [l0, l1, l2, l3]
+        hips[0].set_legs([l0, l1])
+        hips[1].set_legs([l2, l3])
+
+        # # TODO: let hips decide how many it can hold
+        # legs_on_hips = [0 * len(hips)]  # repr # of legs on each hip
+        # curr_hip = 0
+        # max_legs_per_hip = len(seg_specs) / len(hips)
+
+        # for i, _ in enumerate(seg_specs):
+        #     # these are all legs
+        #     leg_segs = []
+        #     prev_seg = None
+
+        #     hip = hips[curr_hip]
+        #     legs_on_hips[curr_hip] += 1
+        #     if legs_on_hips[curr_hip] >= max_legs_per_hip:
+        #         curr_hip += 1
+
+        #     for j, length in enumerate(seg_specs[i]):
+        #         # these are segments of a leg
+        #         hs = HingedSegment(Pt(0, 0), default_globalangle, length)  # TODO
+        #         leg_segs.append(hs)
+
+        #         if prev_seg:
+        #             prev_seg.add_child(hs)
+
+        #         prev_seg = hs
+
+        #     leg = Leg(leg_segs, i)
+        #     hips[curr_hip].add_leg(leg)
+        #     legs.append(leg)
+
+        return legs
+
+    @check_called
+    def create_equal_legs(hips, ht, num_legs, num_segs):
+
+        legs = []
+
+        legs_on_hips = [0 * len(hips)]  # repr # of legs on each hip
+        curr_hip = 0
+        max_legs_per_hip = num_legs / len(hips)
+
+        for i in range(num_legs):
+            hip = hips[curr_hip]
+
+            legs.append(Leg.equal_len_segs(ht, num_segs, hip))
+
+            legs_on_hips[curr_hip] += 1
+            if legs_on_hips[curr_hip] >= max_legs_per_hip:
                 curr_hip += 1
-                curr_legsonhip = 0
 
-    def assign_gait(self, gait: Gait):
-        self.gait = gait
+        return legs
 
-    def update_pos(self):
-        # midpoint between the hips
-        self.front_hip = self.legs[0].get_hip()
-        self.back_hip = self.legs[2].get_hip()
-        self.pos = self.midpoint(self.front_hip, self.back_hip)
-        return self.pos
-
-    def get_pos(self):
-        return self.pos
-
-    def move(self, goal):
-        ic(self.body)
-
-        assert self.gait != None
-
-        # print(f"legs = {self.legs}, gait = {self.gait}")
-        # strategy: assign sub-goals to each leg, run through those and return the joint positions
-        assert len(self.legs) == len(self.gait)  # TODO: allow for repeating values
-
-        curr_gait = 0
-        legs_done = [0] * len(self.legs)
-
-        loops = 0
-
-        # one while loop until you get to the goal. one loop for cycling through the legs and applying their gait
-        while self.update_pos()[0] < goal.x:
-            loops += 1
-
-            if loops > 10000:
-                break
-
-            if min(legs_done) > 0:
-                # no 0's therefore all legs done. next gait is up. we need to circle around sometimes
-                curr_gait = curr_gait + 1 if curr_gait < len(self.legs) - 1 else 0
-
-                # move both hips up and calc new midpoint
-
-                self.back_hip: Pt = Pt(
-                    self.back_hip.x + self.x_delta, self.height
-                )  # back legs are at initialx
-                self.front_hip: Pt = Pt(
-                    self.front_hip.x + self.x_delta + self.length, self.height
-                )
-
-                self.body = self.midpoint(self.front_hip, self.back_hip)
-
-                legs_done = [0] * len(self.legs)  # reset!
-
-            for idx, leg in enumerate(self.legs):
-                # ic(idx)  # which leg is moving
-                # we've already verified that self.legs and self.gait have same length, so apply 1:1
-
-                # if they already have a goal assigned, keep moving and wait for it to return a set of positions
-                if leg.has_goal() and not legs_done[idx] > 0:
-                    ic("has goal and not done")
-                    # move both performs the move and optionally returns a list if it is done. we check if the list
-                    # was returned so that we know when to assign it a new goal.
-                    leg_angles = leg.move()
-                    ic(leg_angles)
-                    if leg_angles != None:
-                        ic(leg.goal)
-                        # it finished! we need to provide it a new goal for next time around and mark that it's done
-                        legs_done[idx] = 1
-
-                        ic(idx)
-                        ic(self.leg_angles)
-                        self.leg_angles[idx].append(
-                            leg_angles
-                        )  # appends to the list for that particular leg
-
-                    # if no list returned, we're not done moving this leg. keep going on the others, we'll come back around
-                elif legs_done[idx] > 0:
-                    ic("leg done")
-                    # this leg has finished its movement.
-                    if not leg.has_goal():
-                        leg.set_goal(
-                            self.new_leg_goal(
-                                goal,
-                                self.gait[curr_gait][idx],
-                                (leg.x_delta, leg.y_delta),
-                            )
-                        )
-
-                    continue
-
-                else:
-                    ic("no goal")
-                    # no goal, so let's calculate what the goals would be for each.
-                    leg.set_goal(
-                        self.new_leg_goal(
-                            goal, self.gait[curr_gait][idx], (leg.x_delta, leg.y_delta)
-                        )
-                    )
-
-    def new_leg_goal(self, overall_goal, gait, leg_deltas) -> Pt:
-
-        # TODO: set parameter for ground? for now assume y=0 is ground
-        ground_y = 0
-
-        new_goal: Pt = (0, 0)
-
-        y_delt, x_delt = leg_deltas
-        curr_x, curr_y = overall_goal.x, overall_goal.y
-
-        if gait == FootState.GROUND:
-            # if ground, same as start, except to move down
-            if curr_y > ground_y:
-                # probably in the middle of a step. continue the step
-                new_x = curr_x + x_delt / 2
-
-            else:
-                # just holding steady
-                new_x = curr_x
-
-            new_y = ground_y
-            new_goal = (curr_x, new_y)
-        elif gait == FootState.SUSPEND:
-            # if suspend, move forward one half delta, not vertically at all (unless to move slightly up)
-            new_y = (
-                curr_y if curr_y > ground_y else y_delt / 2
-            )  # just a tiny shift upwards if touching ground
-            new_x = curr_x + x_delt
-            new_goal = (new_x, new_y)
-        elif gait == FootState.STEP:
-            # takes a step upwards, initiating the swing
-            new_x = curr_x + x_delt / 2
-            new_y = ground_y
-            new_goal = (new_x, new_y)
-
-        return Pt.from_tuple(new_goal)
-
-    def get_angles(self):
-        return self.leg_angles
-
-    def midpoint(self, pt1, pt2):
-        return ((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2)
-
-    def get_length(self):
-        return self.length

@@ -1,111 +1,81 @@
 from __future__ import annotations
-from matplotlib.pyplot import step
-from ka.hinged_segment import HingedSegment  # stops the errors, remove later
-from ka.point import Pt
+
+import matplotlib.pyplot as plt
+
+from unittest.mock import Mock
 
 from typing import List, Tuple, Optional, Union
-
+from icecream import ic
 
 from math import atan2, cos, degrees, pi, sin, sqrt
-from icecream import ic
+
+# from animat import Actors
+from hinged_segment import HingedSegment  # stops the errors, remove later
+from point import Pt
+from gaits import Gait, FootState
 
 
 class Leg(object):
-    def __init__(self, hip: Pt, segments: List(HingedSegment)):
+    def __init__(self, segments: List[HingedSegment], id: int):
+        super().__init__()
 
-        super().__init__()  # inherits from object
+        self.i = 0
+        self.segs = segments
+        self.id = id
 
-        assert len(segments) > 0  # otherwise we don't have a leg!
+        self.foot = segments[-1].end
 
-        self.states = []  # will return these later
-        self.hip = hip
-        self.segments: List(HingedSegment) = segments
-        self.effector = Pt(segments[-1].loc.x, segments[-1].loc.y)
+        self.goal = None
+        self.poses = None
 
-        self.pos = segments[
-            -1
-        ].get_tip_location()  # position of foot is considered to be position
-        self.last_move = self.pos
+        self.states = []
 
-        # attach all the HS's together
-        for i in range(1, len(segments)):
-            segments[i-1].add_child(segments[i])
+    def add_goal(self, goal: float):
+        # TODO
+        self.goal = 6
+        self.calculate_poses(Gait.WALK)
 
-    def move(self) -> Optional[list]:
-        # moves one bit in the process - maybe not a full step, just as far as its deltas let it
-        # returns the list of states it took to get here, if it is done
+    def calculate_poses(self, gait: Gait):
+        # TODO
+        self.poses = [Pt(1, 1), Pt(1, -1)]
 
-        assert self.goal != None  # otherwise we don't know where to move!
+    def get_leg_positions(self, start: Pt) -> List[Pt]:
 
-        for seg in reversed(self.segments):
-            to_effector = self.effector - seg.loc
+        x, y = (start.x, start.y)
+        positions = [Pt(x, y)]
 
-            to_goal = self.goal - seg.loc
+        for seg in self.segs:
+            x += seg.end.x
+            y += seg.end.y
+            positions.append(Pt(x, y))
 
-            new_angle = Pt.angle_between(to_effector, to_goal)
-            seg.set_new_angle(new_angle + seg.ang)
-            self.effector = self.segments[-1].get_tip_location()
+        print(f"from leg, positions are: {positions}")
+        return positions
 
-            # Check for termination by comparing new x,y to goal
-            reached_goal = True if self.effector == self.goal else False
+    # def move(self, footstate: FootState):
+    def move(self) -> int:
+        # returns an id if needs to translate
 
-            # Check if still making progress
-            last_x = self.last_move.x
-            curr_x = self.effector.x
-            making_progress = True if curr_x > last_x else False
+        if self.i >= len(self.poses):
+            # restart
+            self.i = 0
 
-            # TODO: constraint to specific axis
-            # TODO: add joint limits
-            # TODO: add direction of effector
-            # epsilon = 0.0001
-            # trivial_arc_length = 0.00001
+        goal = self.poses[self.i]
+        self.i += 1
 
-            self.add_state()  # always save the state - why not?
+        for seg in reversed(self.segs):
 
-            # TODO: this never finishes
-            if reached_goal or not making_progress:
-                # these are the cases when animat needs to assign a new action
-                return self.states
-            return self.states
-            # we don't want to return something every time - just when we're done moving
+            to_tip = self.foot - seg.end
+            to_goal = goal - seg.end
 
-    def add_state(self):
-        """add a state for each segment containing info about their x,y coords and append that sublist
-        to the main self.states value
-        """
-        step_states = []
+            new_angle = Pt.angle_between(to_tip, to_goal)
+            seg.set_new_angle(new_angle + seg.angle)
 
-        # first one starts at the hip
-        step_states.append(
-            ([self.hip.x, self.hip.y], [self.segments[0].loc.x, self.segments[0].loc.y])
-        )
-
-        for seg in self.segments[1:]:
-            step_states.append(([seg.par.loc.x, seg.par.loc.y], [seg.loc.x, seg.loc.y]))
-
-        # for seg in self.segments:
-        #     step_states.append(([seg.par.loc.x], [seg.loc.x, seg.loc.y]))
-        # step_states.append(
-        #     (self.effector.x, self.effector.y)
-        # )  # effector = tip of last segment in chain
-        self.states.append(step_states)
-        return step_states
-
-    def get_states(self) -> List[List[Tuple[float, float]]]:
-        """self.states contains list of all states we've collected so far. this returns them all
-        Returns:
-            List[List[Tuple[float, float]]]: all states we've captured so far
-        """
-        return self.states
-
-    def set_goal(self, new_goal: float):
-        self.goal = new_goal
-
-    def set_deltas(self, new_x: float = None, new_y: float = None):
-        if new_x:
-            self.x_delta = new_x
-        if new_y:
-            self.y_delta = new_y
+        if goal.y == -1:
+            # touched down -> translate!
+            return True
+        else:
+            return False
 
     @classmethod
     def equal_len_segs(cls: Leg, total_len: float, num_segs: int, hip: Pt) -> Leg:
@@ -147,15 +117,3 @@ class Leg(object):
         segments.append(last_seg)
 
         return Leg(hip, segments)
-
-    def get_pos(self) -> Pt:
-        return self.segments[-1].get_tip_location()
-
-    def get_hip(self) -> Pt:
-        return self.hip
-
-    def has_goal(self) -> bool:
-        return self.goal != None
-
-    def get_segments(self):
-        return self.segments
