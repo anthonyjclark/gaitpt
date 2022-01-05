@@ -31,15 +31,24 @@ class Leg(object):
         self.states = []
 
     def add_goal(self, goal: float):
-        # TODO
+        # TODO: allow for other gaits
         self.goal = 6
         self.calculate_poses(Gait.WALK)
 
     def calculate_poses(self, gait: Gait):
-        # TODO
+        # TODO: entirely design
         self.poses = [Pt(1, 1), Pt(1, -1)]
 
     def get_leg_positions(self, start: Pt) -> List[Pt]:
+        """because a leg only stores relative positions, hip will pass in the actual
+        position, and then this function can compute the actual points for the actors to use
+
+        Args:
+            start (Pt): location of Hip assigned to this leg
+
+        Returns:
+            List[Pt]: actual positions of each leg joint
+        """
 
         x, y = (start.x, start.y)
         positions = [Pt(x, y)]
@@ -51,9 +60,14 @@ class Leg(object):
 
         return positions
 
-    # def move(self, footstate: FootState):
-    def move(self) -> int:
-        # returns an id if needs to translate
+    def move(self) -> bool:
+        """moves leg by implementing reverse kinematics algo used by prof Clark.
+        after move, decided whether the animat needs to translate based on whether 
+        the leg touched down.
+
+        Returns:
+            bool: whether a foot has touched the ground
+        """
 
         if self.i >= len(self.poses):
             # restart
@@ -70,26 +84,12 @@ class Leg(object):
             new_angle = Pt.angle_between(to_tip, to_goal)
             seg.set_new_angle(new_angle + seg.angle)
 
-        if goal.y == -1:
-            # touched down -> translate!
-            return True
-        else:
-            return False
+        # touched down -> translate!
+        return goal.y == -1
 
     @classmethod
     def equal_len_segs(cls: Leg, total_len: float, num_segs: int, hip: Pt) -> Leg:
-        """Create a new leg by making equal length segments
-        Args:
-            cls (Leg): [description]
-            total_len (float): [description]
-            num_segs (int): [description]
-            x_delta (float): [description]
-            y_delta (float): [description]
-            goal (float, optional): [description]. Defaults to None.
-            save_state (bool, optional): [description]. Defaults to False.
-        Returns:
-            Leg: new leg with equal length segments.
-        """
+        # TODO: should create legs with equal lenght segments. not currently used
 
         assert num_segs > 0
         assert total_len > 0.0
