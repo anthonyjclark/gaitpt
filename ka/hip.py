@@ -29,6 +29,11 @@ class Hip(object):
         self.states = []
 
     def add_leg(self, leg):
+        """add leg without replacing current list
+
+        Args:
+            leg ([type]): Leg object
+        """
         self.legs.append(leg)
 
     def get_leg_positions(self) -> List[List[Pt]]:
@@ -65,14 +70,18 @@ class Hip(object):
         self.pos = Pt(self.pos.x + 1, self.pos.y)
 
     def move(self):
+        """moves each child leg, tells animat whether translation is needed
+
+        Returns:
+            [type]: returning True if the animat needs to translate
+        """
 
         for leg in self.legs:
-            translate = leg.move()
-            if translate:
-                self.trans = True
+            leg_landed = leg.move()
+            if leg_landed:
+                self.trans = (
+                    True
+                )  # don't want to return here bc still want to move other legs
 
-        if self.trans:
-            return True
-        else:
-            return False
+        return self.trans
 
