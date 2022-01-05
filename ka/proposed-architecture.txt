@@ -1,0 +1,18 @@
+Goals: Use inverse kinematics to animate the joint positions of two-hipped animals
+and then return lists of positions for each joint when walking from start to goal. 
+
+Requirements:
+- will be able to pass in gaits as described in: 
+https://www.animatornotebook.com/learn/quadrupeds-gaits
+- can accomodate different numbers of legs, although we'll assume two hips for now
+- will need to be animated at some point
+
+Classes Needed:
+- HingedSegment: as implemented in prof Clark's code. will represent parts of a leg 
+- Leg: combines functionality of original Leg and Segment Chain
+- Hip: is assigned some number of legs, controls their synchronization (for applying gaits)
+- Animat: combines hip and leg classes, in charge of animation and propagation of gaits
+- Gait: special data type, contains info about how each leg moves:
+    - start with two legs, think about how to expand to have more legs. 
+- Pt: for defining points
+
