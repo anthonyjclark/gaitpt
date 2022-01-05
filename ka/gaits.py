@@ -11,8 +11,12 @@ class FootState(Enum):
 
     """
 
-    GROUND = 1  # no horizontal or vertical movement, except to get to ground as fast as possible
-    SUSPEND = 2  # keeps horizontal movement, no vertical movement except to get air if not up already
+    GROUND = (
+        1
+    )  # no horizontal or vertical movement, except to get to ground as fast as possible
+    SUSPEND = (
+        2
+    )  # keeps horizontal movement, no vertical movement except to get air if not up already
     STEP = 3  # performs the up movement of taking a step
 
 
@@ -20,40 +24,65 @@ class Gait(Enum):
     """Represents one of the gaits from https://www.animatornotebook.com/learn/quadrupeds-gaits"""
 
     # start by assuming only 4 legs, two hips
-    # foot states are front to back, left to right
+    # foot states are front to back, left to right. Each list represents one foot's movement
     WALK = [  # amble takes the same type of steps, will just be sped up
-        (FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.STEP),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.GROUND),
+        [FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.GROUND],  # l1
+        [FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.STEP],  # l2
+        [FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND],  # l3
+        [FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND],  # l4
     ]
 
     TROT = [
-        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.STEP),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
+        [FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND],
+        [FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND],
+        [FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND],
+        [FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND],
     ]
 
     PACE = [
-        (FootState.STEP, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP),
-        (FootState.GROUND, FootState.GROUND, FootState.GROUND, FootState.GROUND),
+        [FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND],
+        [FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND],
+        [FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND],
+        [FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND],
     ]
 
     # we're going to assume a left lead for gaits that have either left or right leads
+
     CANTER = [
-        (FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP),
-        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND),
-        (FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND),
+        [FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.SUSPEND],
+        [FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.SUSPEND],
+        [FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.SUSPEND],
+        [FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.SUSPEND],
     ]
 
     GALLOP = [
-        (FootState.GROUND, FootState.GROUND, FootState.STEP, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.STEP),
-        (FootState.STEP, FootState.GROUND, FootState.GROUND, FootState.GROUND),
-        (FootState.GROUND, FootState.STEP, FootState.GROUND, FootState.GROUND),
-        (FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND, FootState.SUSPEND),
+        [
+            FootState.GROUND,
+            FootState.GROUND,
+            FootState.STEP,
+            FootState.GROUND,
+            FootState.SUSPEND,
+        ],
+        [
+            FootState.GROUND,
+            FootState.STEP,
+            FootState.GROUND,
+            FootState.STEP,
+            FootState.SUSPEND,
+        ],
+        [
+            FootState.STEP,
+            FootState.GROUND,
+            FootState.GROUND,
+            FootState.GROUND,
+            FootState.SUSPEND,
+        ],
+        [
+            FootState.GROUND,
+            FootState.STEP,
+            FootState.GROUND,
+            FootState.GROUND,
+            FootState.SUSPEND,
+        ],
     ]
+
