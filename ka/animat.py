@@ -39,12 +39,15 @@ class Animat(object):
         self.hips = [self.front_hip, self.back_hip]
 
         # TODO: fix leg creation methods
-        leg_specs = [
-            [1.0, 1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0, 1.0],
-        ]
+        # leg_specs = [
+        #     [1.0, 1.0, 1.0, 1.0],
+        #     [1.0, 1.0, 1.0, 1.0],
+        #     [1.0, 1.0, 1.0, 1.0],
+        #     [1.0, 1.0, 1.0, 1.0],
+        # ]
+
+        leg_specs = [[1.0, 1.0, 1.0]]
+
         # create all the legs - front to back
         self.legs: List[Leg] = self.create_legs(hips=self.hips, specs=leg_specs)
 
@@ -74,7 +77,8 @@ class Animat(object):
         for i, hip in enumerate(self.hips):
             if hip.move():
                 # if needs to translate, ie one of the legs has touched down
-                self.translate(i)
+                # self.translate(i) #not doing that anymore
+                pass
 
         # concatenate all the lists together - each hip should have two lists inside
         states = []
@@ -155,35 +159,34 @@ class Animat(object):
             HingedSegment(Pt(0, 0), default_globalangle, 1.0),
             HingedSegment(Pt(0, 0), default_globalangle, 1.0),
             HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
         ]
-        segs2 = [
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        ]
-        segs3 = [
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-        ]
-        segs4 = [
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        ]
+        # segs2 = [
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        # ]
+        # segs3 = [
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+        # ]
+        # segs4 = [
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
+        # ]
 
         l0 = Leg(segs1, 0)
-        l1 = Leg(segs2, 1)
-        l2 = Leg(segs3, 2)
-        l3 = Leg(segs4, 3)
+        # l1 = Leg(segs2, 1)
+        # l2 = Leg(segs3, 2)
+        # l3 = Leg(segs4, 3)
 
-        legs = [l0, l1, l2, l3]
-        hips[0].set_legs([l0, l1])
-        hips[1].set_legs([l2, l3])
+        legs = [l0]
+        hips[0].set_legs([l0])
+        hips[1].set_legs([])
 
         # # TODO: let hips decide how many it can hold
         # legs_on_hips = [0 * len(hips)]  # repr # of legs on each hip
