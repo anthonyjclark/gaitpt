@@ -53,6 +53,11 @@ class Animat(object):
         self.leg_data = [[]] * self.num_legs
 
     def add_goal(self, goal: float):
+        """assigns a new goal to animat, which triggers leg to assign goals and create poses
+
+        Args:
+            goal (float): this is really a distance, since we assume start at 0
+        """
 
         self.goal = goal
 
@@ -60,15 +65,18 @@ class Animat(object):
             leg.add_goal(goal)
 
     def move(self):
+        """moves each leg one position, and performs translations if needed. 
+        translations are needed if a leg has touched down, which hip will report
+        """
 
         assert self.goal
 
         for i, hip in enumerate(self.hips):
             if hip.move():
-                # if needs to translate
+                # if needs to translate, ie one of the legs has touched down
                 self.translate(i)
 
-        # TODO: we want to concatenate these lists properly. each should have two lists
+        # concatenate all the lists together - each hip should have two lists inside
         states = []
         for hip in self.hips:
             states += hip.get_leg_positions()
@@ -76,9 +84,21 @@ class Animat(object):
         self.leg_data.append(states)
 
     def get_last_step_data(self) -> List[List[Pt]]:
+        """gets the last step's worth of data from our internal data structure
+
+        Returns:
+            List[List[Pt]]: one list for each leg, all held together in one list
+        """
         return self.leg_data[-1]
 
     def translate(self, idx: int):
+        """moves all components forward by 1 unit, without changing any angle positions.
+        starts at the idx provided, so that for ex back legs won't move the front.
+        # TODO: does this implementation make sense?
+
+        Args:
+            idx (int): index of the body part after which translations start. Inclusive.
+        """
         for i in range(idx, len(self.hips)):
             self.hips[i].translate()
 
@@ -90,6 +110,22 @@ class Animat(object):
         num_legs: int = None,
         num_segs: int = None,
     ):
+        """routes to a function creating legs either from detailed specifications or by providing the shape
+        of the animal. either (hips, specs) or (hips, ht, num_legs, num_segs) are necessary
+
+        Args:
+            hips (List[Pt]): list of all hips in the animal. 
+            specs (List[List[float]], optional): a list of segment lengths. Defaults to None.
+            ht (float, optional): height of the animal. Defaults to None.
+            num_legs (int, optional): number of legs. Defaults to None.
+            num_segs (int, optional): segments per leg. Defaults to None.
+
+        Raises:
+            ValueError: if we're not passed in the necessary arguments, will raise an exception saying so
+
+        Returns:
+            [type]: a list of legs, favoring specs if available
+        """
         # hips always needs to be passed in
         assert len(hips) > 0
 
@@ -106,17 +142,6 @@ class Animat(object):
     def create_legs_from_spec(
         self, hips: List[Hip], seg_specs: List[List[float]]
     ) -> List[Leg]:
-        """creates legs for animat from specs
-
-        Args:
-            actors (Actors): [description]
-            ht (float): [description]
-            seg_specs (List[List[float]]): one column for each leg. each has list of values for all segments inside
-            hips (List[Pt]): [description]
-
-        Returns:
-            List[Leg]: [description]
-        """
 
         legs = []
         default_globalangle = 0.0  # maybe needs to change for some animals, but not rn
@@ -189,7 +214,7 @@ class Animat(object):
 
     @check_called
     def create_equal_legs(hips, ht, num_legs, num_segs):
-
+        # not used
         legs = []
 
         legs_on_hips = [0 * len(hips)]  # repr # of legs on each hip
