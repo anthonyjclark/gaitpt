@@ -36,7 +36,9 @@ class App:
 
         st.write(self.name)
 
-        self.plot = st.empty()
+        self.plot = (
+            st.empty()
+        )  # placeholder, so that the plot is always top of the screen
         self.run_btn = st.button(
             "Run", key="run", help="Set parameters first, then click here to run"
         )
@@ -79,6 +81,10 @@ class App:
             self.run()
 
     def run(self):
+        """
+        Creates blank actors and plot, then updates them with information from calling
+        Animat.move() over and over
+        """
         self.plot.pyplot(plt)
 
         self.new_anim()
@@ -93,12 +99,8 @@ class App:
             self.animate(updates)
             time.sleep(1)
 
-        # for i in range(10):
-        #     updates = self.get_poses(self.actors)
-        #     self.animate(updates)
-        #     # time.sleep(3)
-
     def new_anim(self):
+        # new actors for everything
         for actor in self.actors:
             actor.set_data([0, 0, 0, 0], [0, 1, 2, 3])
 
@@ -111,6 +113,7 @@ class App:
         self.plot.pyplot(plt)
 
     def animate(self, updates):
+        # update the existing actors with information from updates
         for actor, x, y in updates:
             actor.set_data(x, y)
 
@@ -122,22 +125,34 @@ class App:
         self.plot.pyplot(plt)
 
     def create_actors(self):
+        """Creates actors (plt.2DLine) without any information
+        """
         for i in range(0, self.num_actors):
             line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
             self.actors.append(line)
 
         # hip actor
-        # line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
-        # self.actors.append(line)
+        line, = self.ax.plot([], [], marker="o", linewidth=self.line_width)
+        self.actors.append(line)
 
     def actorupdate_from_stepdata(
         self, data: List[List[Pt]], actors: List[Actor]
     ) -> List[Actor_Update]:
-        # unzip x,y vals and assign to actors
+        """assigns the x and y coordinates to specific actors, so they can be updated directly with
+        animate(). assignment is based on keeping all legs in the same position as their respective actor
+
+        Args:
+            data (List[List[Pt]]): stepdata collected from Animat
+            actors (List[Actor]): list of 2DLines, which need x and y coordinates in order to update
+
+        Returns:
+            List[Actor_Update]: tuple (actor, list of x coords, list of y coords)
+        """
 
         updates = []
 
         for i, leg in enumerate(data):
+            # data is a list of points, so we unpack those into x and y coords for each leg/actor
 
             x = []
             y = []
@@ -147,23 +162,6 @@ class App:
                 y.append(pt.y)
 
             updates.append((actors[i], x, y))
-
-        return updates
-
-    def get_poses(self, actors: List[Actor]) -> Actor_Update:
-        # placeholder - this should be done by controller
-        # gets new positions for each actor
-
-        updates = []
-
-        for i, actor in enumerate(actors):
-            x = [i] + np.random.randint(0, self.max_x, size=self.num_joints)
-            # TODO: will cause error when # legs > 7
-            y = [int(self.anim_ht)] + np.random.randint(
-                0, self.anim_ht, size=self.num_joints
-            )
-
-            updates.append((actor, x, y))
 
         return updates
 
