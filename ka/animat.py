@@ -32,9 +32,9 @@ class Animat(object):
 
         # TODO: hip id programmatically
         # create both hips - front to back
-        back_hip_pos = Pt(0, self.ht)
+        back_hip_pos = Pt(5, self.ht)
         self.back_hip = Hip(back_hip_pos, 1)
-        front_hip_pos = Pt(self.length, self.ht)
+        front_hip_pos = Pt(5 + self.length, self.ht)
         self.front_hip = Hip(front_hip_pos, 0)
         self.hips = [self.front_hip, self.back_hip]
 
@@ -92,6 +92,7 @@ class Animat(object):
         return self.leg_data[-1]
 
     def translate(self, idx: int):
+        # no longer being used
         """moves all components forward by 1 unit, without changing any angle positions.
         starts at the idx provided, so that for ex back legs won't move the front.
         # TODO: does this implementation make sense?
