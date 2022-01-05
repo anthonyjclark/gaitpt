@@ -99,7 +99,10 @@ class Animat(object):
         Args:
             idx (int): index of the body part after which translations start. Inclusive.
         """
-        for i in range(idx, len(self.hips)):
+        # for i in range(idx, len(self.hips)): # this translates only starting at that index
+        for i in range(
+            0, len(self.hips)
+        ):  # this translates for all indexes, regardless of our input
             self.hips[i].translate()
 
     def create_legs(
