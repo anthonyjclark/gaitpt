@@ -14,8 +14,18 @@ from gaits import Gait, FootState
 
 class HingedSegment(object):
     def __init__(self, start: Pt, angle: float, len: float):
+        """creates a HingedSegment, which represents relative positions of the leg. no parent; we instead have
+        each segment assume it starts at 0,0 and allow the Hip to interpret their positions
+
+        Args:
+            start (Pt): #TODO: remove
+            angle (float): angle relative to the ground, with straight down being 0 degrees
+            len (float): segment length
+        """
         # self.start = start
-        self.start = Pt(0, 0)
+        self.start = Pt(
+            0, 0
+        )  # hardcoding this one. probably want to keep this behavior
         self.angle = angle
         self.len = len
 
@@ -24,11 +34,21 @@ class HingedSegment(object):
         self.chi = None
 
     def calculate_end(self) -> Pt:
+        """calculates position of the tip of this segment
+
+        Returns:
+            Pt: the tip
+        """
         x = self.start.x + self.len * cos(self.angle)
         y = self.start.y + self.len * sin(self.angle)
         return Pt(x, y)
 
     def add_child(self, chi: HingedSegment):
+        """adds a segment in as a child, linkedlist style
+
+        Args:
+            chi (HingedSegment): ONLY hingedsegments can be connected
+        """
         self.chi = chi
 
     def update_from_parent(self, delta_angle: float) -> None:
@@ -57,5 +77,11 @@ class HingedSegment(object):
         if self.chi:
             self.chi.update_from_parent(delta_angle)
 
-    def get_tip(self):
+    def get_tip(self) -> Pt:
+        """wrapper function; calls calculate_end and returns the result, also updating self.end
+
+        Returns:
+            Pt: coordinates of tip
+        """
+        self.end = self.calculate_end()
         return self.end
