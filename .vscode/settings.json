@@ -1,3 +1,3 @@
 {
-    "python.pythonPath": "/Users/ajcd2020/.miniconda3/envs/datascience/bin/python"
+    "python.pythonPath": "/usr/local/Caskroom/mambaforge/base/envs/ds/bin/python"
 }
