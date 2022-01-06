@@ -6,13 +6,14 @@ from unittest.mock import Mock
 from typing import List, Tuple, Optional, Union
 from icecream import ic
 
-from math import atan2, cos, degrees, pi, sin, sqrt
+from math import atan2, cos, degrees, pi, sin, sqrt, radians
 
 from hinged_segment import HingedSegment
 from hip import Hip  # stops the errors, remove later
 from point import Pt
 from leg import Leg
 from gaits import Gait, FootState
+
 
 Actors = List[plt.Line2D]
 
@@ -34,7 +35,7 @@ class Animat(object):
         # create both hips - front to back
         back_hip_pos = Pt(5, self.ht)
         self.back_hip = Hip(back_hip_pos, 1)
-        front_hip_pos = Pt(5 + self.length, self.ht)
+        front_hip_pos = Pt(10 + self.length, self.ht)
         self.front_hip = Hip(front_hip_pos, 0)
         self.hips = [self.front_hip, self.back_hip]
 
@@ -152,41 +153,44 @@ class Animat(object):
     ) -> List[Leg]:
 
         legs = []
-        default_globalangle = 0.0  # maybe needs to change for some animals, but not rn
+        start_angle = -90.0  # maybe needs to change for some animals, but not rn
+        max_angles = (radians(60), radians(-60))
 
         # TODO: not hardcoded
         segs1 = [
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-            HingedSegment(Pt(0, 0), default_globalangle, 1.0),
+            HingedSegment(radians(-30.0), max_angles, 1.0),
+            HingedSegment(radians(60.0), max_angles, 1.0),
+            HingedSegment(radians(-15.0), max_angles, 1.0),
         ]
-        # segs2 = [
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        # ]
-        # segs3 = [
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.0),
-        # ]
-        # segs4 = [
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        #     HingedSegment(Pt(0, 0), default_globalangle, 1.1),
-        # ]
+        segs2 = [
+            HingedSegment(radians(-30.0), max_angles, 1.1),
+            HingedSegment(radians(60.0), max_angles, 1.1),
+            HingedSegment(radians(-15.0), max_angles, 1.1),
+        ]
+        segs3 = [
+            HingedSegment(radians(-30.0), max_angles, 1.0),
+            HingedSegment(radians(60.0), max_angles, 1.0),
+            HingedSegment(radians(-15.0), max_angles, 1.0),
+        ]
+        segs4 = [
+            HingedSegment(radians(-30.0), max_angles, 1.1),
+            HingedSegment(radians(60.0), max_angles, 1.1),
+            HingedSegment(radians(-15.0), max_angles, 1.1),
+        ]
 
         l0 = Leg(segs1, 0)
-        # l1 = Leg(segs2, 1)
-        # l2 = Leg(segs3, 2)
-        # l3 = Leg(segs4, 3)
+        l1 = Leg(segs2, 1)
+        l2 = Leg(segs3, 2)
+        l3 = Leg(segs4, 3)
 
-        legs = [l0]
-        hips[0].set_legs([l0])
-        hips[1].set_legs([])
+        # uncomment for one leg
+        # legs = [l0]
+        # hips[0].set_legs([l0])
+        # hips[1].set_legs([])
+
+        legs = [l0, l1, l2, l3]
+        hips[0].set_legs([l0, l1])
+        hips[1].set_legs([l2, l3])
 
         # # TODO: let hips decide how many it can hold
         # legs_on_hips = [0 * len(hips)]  # repr # of legs on each hip

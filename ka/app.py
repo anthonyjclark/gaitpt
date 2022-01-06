@@ -97,7 +97,7 @@ class App:
                 self.animat.get_last_step_data(), self.actors
             )
             self.animate(updates)
-            time.sleep(1)
+            time.sleep(3)
 
     def new_anim(self):
         # new actors for everything

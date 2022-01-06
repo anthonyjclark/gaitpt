@@ -37,7 +37,7 @@ class Leg(object):
 
     def calculate_poses(self, gait: Gait):
         # TODO: entirely design
-        self.poses = [Pt(1, 1), Pt(1, -1)]
+        self.poses = [Pt(1, 1), Pt(-1, -1)]
 
     def get_leg_positions(self, start: Pt) -> List[Pt]:
         """because a leg only stores relative positions, hip will pass in the actual
@@ -54,7 +54,7 @@ class Leg(object):
         positions = [Pt(x, y)]
 
         for seg in self.segs:
-            x -= seg.end.x
+            x += seg.end.x
             y -= seg.end.y
             positions.append(Pt(x, y))
 
@@ -76,21 +76,21 @@ class Leg(object):
         goal = self.poses[self.i]
         self.i += 1
 
-        # for seg in reversed(self.segs):
+        for seg in reversed(self.segs):
+
+            to_tip = self.foot - seg.end
+            to_goal = goal - seg.end
+
+            new_angle = Pt.angle_between(to_tip, to_goal)
+            seg.set_new_angle(new_angle)
+
+        # seg = self.segs[-1]
 
         # to_tip = self.foot - seg.end
         # to_goal = goal - seg.end
 
         # new_angle = Pt.angle_between(to_tip, to_goal)
-        # seg.set_new_angle(new_angle + seg.angle)
-
-        seg = self.segs[-1]
-
-        to_tip = self.foot - seg.end
-        to_goal = goal - seg.end
-
-        new_angle = Pt.angle_between(to_tip, to_goal)
-        seg.set_new_angle(new_angle)
+        # seg.set_new_angle(new_angle)
 
         # touched down -> translate!
         return goal.y == -1

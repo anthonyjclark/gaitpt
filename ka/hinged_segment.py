@@ -13,7 +13,7 @@ from gaits import Gait, FootState
 
 
 class HingedSegment(object):
-    def __init__(self, start_angle: float, max_angle: float, len: float):
+    def __init__(self, start_angle: float, max_angles: Tuple[float, float], len: float):
         """creates a HingedSegment, which represents relative positions of the leg. no parent; we instead have
         each segment assume it starts at 0,0 and allow the Hip to interpret their positions
 
@@ -27,7 +27,9 @@ class HingedSegment(object):
         )  # hardcoding this one. probably want to keep this behavior
         self.angle = start_angle
         self.len = len
-        self.max_angle = max_angle
+
+        # to the right are negative values, to the left are positive
+        self.max_angles = max_angles
 
         self.end = self.calculate_end()
 
@@ -69,7 +71,15 @@ class HingedSegment(object):
         Args:
             new_angle (float): new angle for this segment
         """
-        new_angle = min(new_angle, self.max_angle)
+        if new_angle <= self.max_angles[1] and new_angle >= self.max_angles[0]:
+            new_angle = new_angle
+        elif new_angle > self.max_angles[1]:
+            # moved too far left
+            new_angle = self.max_angles[1]
+        elif new_angle < self.max_angles[0]:
+            # moved too far right
+            new_angle = self.max_angles[0]
+
         delta_angle = (
             new_angle - self.angle
         )  # the difference between new and old angles
