@@ -76,13 +76,21 @@ class Leg(object):
         goal = self.poses[self.i]
         self.i += 1
 
-        for seg in reversed(self.segs):
+        # for seg in reversed(self.segs):
 
-            to_tip = self.foot - seg.end
-            to_goal = goal - seg.end
+        # to_tip = self.foot - seg.end
+        # to_goal = goal - seg.end
 
-            new_angle = Pt.angle_between(to_tip, to_goal)
-            seg.set_new_angle(new_angle + seg.angle)
+        # new_angle = Pt.angle_between(to_tip, to_goal)
+        # seg.set_new_angle(new_angle + seg.angle)
+
+        seg = self.segs[-1]
+
+        to_tip = self.foot - seg.end
+        to_goal = goal - seg.end
+
+        new_angle = Pt.angle_between(to_tip, to_goal)
+        seg.set_new_angle(new_angle)
 
         # touched down -> translate!
         return goal.y == -1
