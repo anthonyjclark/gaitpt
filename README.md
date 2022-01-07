@@ -2,6 +2,8 @@
 
 Pre-training gaits for genetic algorithms
 
+![](example.gif)
+
 # Initial Notes
 
 - Walking pattern generator
