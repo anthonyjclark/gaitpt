@@ -37,7 +37,30 @@ class Leg(object):
 
     def calculate_poses(self, gait: Gait):
         # TODO: entirely design
-        self.poses = [Pt(1, 1), Pt(-1, -1)]
+        poses = []
+
+        # foot = last segment
+        # foot = self.segs[-1]
+
+        # og_angle = foot.angle
+
+        # # max range of the foot going forwasrd. assume start at (0,0)
+        # foot.set_new_angle(foot.max_angles[1])
+        # forward = foot.calculate_end()
+
+        # foot.set_new_angle(foot.max_angles[0])
+        # backward = foot.calculate_end()
+
+        # foot.set_new_angle(og_angle)
+
+        # poses = [backward, forward]
+
+        # self.poses = poses
+
+        self.poses = [
+            Pt(1, -1),
+            Pt(-1, -1),
+        ]  # this one just works, and I can't figure out why
 
     def get_leg_positions(self, start: Pt) -> List[Pt]:
         """because a leg only stores relative positions, hip will pass in the actual
@@ -75,6 +98,8 @@ class Leg(object):
 
         goal = self.poses[self.i]
         self.i += 1
+
+        # goal = Pt(goal.x * )
 
         for seg in reversed(self.segs):
 

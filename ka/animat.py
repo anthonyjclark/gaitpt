@@ -158,29 +158,29 @@ class Animat(object):
 
         # TODO: not hardcoded
         segs1 = [
-            HingedSegment(radians(-30.0), max_angles, 1.0),
-            HingedSegment(radians(60.0), max_angles, 1.0),
+            HingedSegment(radians(15.0), max_angles, 1.0),
             HingedSegment(radians(-15.0), max_angles, 1.0),
+            HingedSegment(radians(15.0), max_angles, 1.0),
         ]
-        segs2 = [
-            HingedSegment(radians(-30.0), max_angles, 1.1),
-            HingedSegment(radians(60.0), max_angles, 1.1),
-            HingedSegment(radians(-15.0), max_angles, 1.1),
-        ]
-        segs3 = [
-            HingedSegment(radians(-30.0), max_angles, 1.0),
-            HingedSegment(radians(60.0), max_angles, 1.0),
-            HingedSegment(radians(-15.0), max_angles, 1.0),
-        ]
+        # segs2 = [
+        #     HingedSegment(radians(-30.0), max_angles, 1.1),
+        #     HingedSegment(radians(60.0), max_angles, 1.1),
+        #     HingedSegment(radians(-15.0), max_angles, 1.1),
+        # ]
+        # segs3 = [
+        #     HingedSegment(radians(-30.0), max_angles, 1.0),
+        #     HingedSegment(radians(60.0), max_angles, 1.0),
+        #     HingedSegment(radians(-15.0), max_angles, 1.0),
+        # ]
         segs4 = [
-            HingedSegment(radians(-30.0), max_angles, 1.1),
-            HingedSegment(radians(60.0), max_angles, 1.1),
-            HingedSegment(radians(-15.0), max_angles, 1.1),
+            HingedSegment(radians(15.0), max_angles, 1.0),
+            # HingedSegment(radians(60.0), max_angles, 1.1),
+            HingedSegment(radians(-15.0), max_angles, 1.0),
         ]
 
         l0 = Leg(segs1, 0)
-        l1 = Leg(segs2, 1)
-        l2 = Leg(segs3, 2)
+        # l1 = Leg(segs2, 1)
+        # l2 = Leg(segs3, 2)
         l3 = Leg(segs4, 3)
 
         # uncomment for one leg
@@ -188,9 +188,9 @@ class Animat(object):
         # hips[0].set_legs([l0])
         # hips[1].set_legs([])
 
-        legs = [l0, l1, l2, l3]
-        hips[0].set_legs([l0, l1])
-        hips[1].set_legs([l2, l3])
+        legs = [l0, l3]
+        hips[0].set_legs([l0])
+        hips[1].set_legs([l3])
 
         # # TODO: let hips decide how many it can hold
         # legs_on_hips = [0 * len(hips)]  # repr # of legs on each hip

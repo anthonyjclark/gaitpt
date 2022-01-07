@@ -47,11 +47,13 @@ class Hip(object):
         # legs have delta from hip
 
         actors = []
-        print(f" I have {len(self.legs)} legs and am index {self.id}")
 
         for leg in self.legs:
 
             actors.append(leg.get_leg_positions(self.pos))
+            print(
+                f"leg {leg.id} has a foot at {actors[-1][-1]} and ankle at {actors[-1][-2]} "
+            )
 
         return actors
 

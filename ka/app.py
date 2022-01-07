@@ -2,6 +2,7 @@
 Purpose: create a streamlit app to plot movement in real time. Later, will also accept inputs for new run
 """
 from abc import update_abstractmethods
+from enum import auto
 from os import wait, chdir
 from re import L
 from typing import List, Tuple
@@ -24,14 +25,14 @@ class App:
     def __init__(self):
         self.name = "GaitPt Visualizer"
         self.max_x = 50
-        self.max_y = 10
+        self.max_y = 5
         self.line_width = 1
         self.actors = []
 
         self.fig, self.ax = plt.subplots()
 
         # set up axes
-        self.ax.set_ylim(0, self.max_y)
+        self.ax.set_ylim(0, top=self.max_y)
         self.ax.set_xlim(0, self.max_x)
 
         st.write(self.name)
@@ -101,21 +102,30 @@ class App:
 
     def new_anim(self):
         # new actors for everything
-        for actor in self.actors:
-            actor.set_data([0, 0, 0, 0], [0, 1, 2, 3])
-
-        # hip
-        self.actors[-1].set_data(
-            [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
-            [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
+        updates = self.actorupdate_from_stepdata(
+            self.animat.get_last_step_data(), self.actors
         )
+        self.animate(updates)
+
+        # for actor in self.actors:
+        #     actor.set_data([0, 0, 0, 0], [0, 1, 2, 3])
+
+        # # hip
+        # self.actors[-1].set_data(
+        #     [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
+        #     [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
+        # )
 
         self.plot.pyplot(plt)
 
     def animate(self, updates):
         # update the existing actors with information from updates
+
         for actor, x, y in updates:
             actor.set_data(x, y)
+
+            for (x, y) in zip(x, y):
+                self.ax.text(x, y, str(Pt(x, y)))
 
         # hip
         self.actors[-1].set_data(
