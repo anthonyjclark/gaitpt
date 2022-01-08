@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from unittest.mock import Mock
 
@@ -24,43 +25,46 @@ class Leg(object):
         self.id = id
 
         self.foot = segments[-1].end
+        self.foot_pos = None
 
         self.goal = None
         self.poses = None
 
         self.states = []
 
+        self.num_per_step = 10
+
     def add_goal(self, goal: float):
         # TODO: allow for other gaits
         self.goal = 6
-        self.calculate_poses(Gait.WALK)
+        self.calculate_poses(Gait.WALK.value)
 
-    def calculate_poses(self, gait: Gait):
+    def calculate_poses(self, gait: List[List[FootState]]):
         # TODO: entirely design
+
+        # v3:
         poses = []
+        poses.append(self.foot_pos)
 
-        # foot = last segment
-        # foot = self.segs[-1]
+        steps: List[FootState] = gait[
+            self.id
+        ]  # gets the leg positions for that one leg
 
-        # og_angle = foot.angle
+        for step in steps:
 
-        # # max range of the foot going forwasrd. assume start at (0,0)
-        # foot.set_new_angle(foot.max_angles[1])
-        # forward = foot.calculate_end()
+            # needs to catch errors with multiple steps etc
+            if step == FootState.STEP:
+                # goes forward, then back
+                poses += self.get_step_arc(self.foot_pos, self.num_per_step)
 
-        # foot.set_new_angle(foot.max_angles[0])
-        # backward = foot.calculate_end()
+                # should end up back at start
 
-        # foot.set_new_angle(og_angle)
+            # elif step == FootState.GROUND:
+            #     stay_poses = [self.foot] * self.num_per_step
+            #     poses += stay_poses
 
-        # poses = [backward, forward]
-
-        # self.poses = poses
-
-        self.poses = [
-            Pt(1, -1),
-            Pt(-1, -1),
-        ]  # this one just works, and I can't figure out why
+        self.poses = poses
+        print(self.poses)
 
     def get_leg_positions(self, start: Pt) -> List[Pt]:
         """because a leg only stores relative positions, hip will pass in the actual
@@ -81,6 +85,8 @@ class Leg(object):
             y -= seg.end.y
             positions.append(Pt(x, y))
 
+        self.foot_pos = positions[-1]  # updates this every time
+
         return positions
 
     def move(self) -> bool:
@@ -99,7 +105,9 @@ class Leg(object):
         goal = self.poses[self.i]
         self.i += 1
 
-        # goal = Pt(goal.x * )
+        max_steps = 100
+
+        print(f"current goal for leg {self.id} is {goal}")
 
         for seg in reversed(self.segs):
 
@@ -107,18 +115,39 @@ class Leg(object):
             to_goal = goal - seg.end
 
             new_angle = Pt.angle_between(to_tip, to_goal)
-            seg.set_new_angle(new_angle)
+            seg.set_new_angle(new_angle + seg.angle)
 
-        # seg = self.segs[-1]
+    def get_step_arc(self, start: Pt, num_steps=10) -> List[Pt]:
+        # just a triangle for now
 
-        # to_tip = self.foot - seg.end
-        # to_goal = goal - seg.end
+        pts: List[Pt] = [start]
 
-        # new_angle = Pt.angle_between(to_tip, to_goal)
-        # seg.set_new_angle(new_angle)
+        horiz_reach = 1
+        vertical_reach = 0.4
 
-        # touched down -> translate!
-        return goal.y == -1
+        x, y = start.x, start.y
+        delta_x = horiz_reach / num_steps
+        delta_y = 2 * vertical_reach / num_steps
+
+        for step in range(num_steps):
+            x += delta_x
+            y += (
+                delta_y if step < num_steps // 2 else -delta_y
+            )  # up if halfway through, else down
+            pts.append(Pt(x=x, y=y))
+
+        # Backward motion path
+        for _ in range(int(num_steps * 1.5)):
+            x -= delta_x
+            pts.append(Pt(x=x, y=y))
+
+        # Path back to initial position
+        for step in range(num_steps // 2):
+            x += delta_x
+            y += delta_y if step < num_steps // 4 else -delta_y
+            pts.append(Pt(x=x, y=y))
+
+        return pts
 
     @classmethod
     def equal_len_segs(cls: Leg, total_len: float, num_segs: int, hip: Pt) -> Leg:

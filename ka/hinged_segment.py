@@ -12,8 +12,14 @@ from point import Pt
 from gaits import Gait, FootState
 
 
+def clip(val: float, lo: float, hi: float) -> float:
+    return max(min(val, hi), lo)
+
+
 class HingedSegment(object):
-    def __init__(self, start_angle: float, max_angles: Tuple[float, float], len: float):
+    def __init__(
+        self, start: Pt, start_angle: float, max_angles: Tuple[float, float], len: float
+    ):
         """creates a HingedSegment, which represents relative positions of the leg. no parent; we instead have
         each segment assume it starts at 0,0 and allow the Hip to interpret their positions
 
@@ -22,9 +28,7 @@ class HingedSegment(object):
             angle (float): angle relative to the ground, with straight down being 0 degrees
             len (float): segment length
         """
-        self.start = Pt(
-            0, 0
-        )  # hardcoding this one. probably want to keep this behavior
+        self.start = start  # hardcoding this one. probably want to keep this behavior
         self.angle = start_angle
         self.len = len
 
@@ -34,6 +38,10 @@ class HingedSegment(object):
         self.end = self.calculate_end()
 
         self.chi = None
+
+    def set_max_angles(self, low: float, high: float):
+        self.max_angles[1] = low
+        self.max_angles[0] = high
 
     def calculate_end(self) -> Pt:
         """calculates position of the tip of this segment
@@ -71,14 +79,8 @@ class HingedSegment(object):
         Args:
             new_angle (float): new angle for this segment
         """
-        if new_angle <= self.max_angles[1] and new_angle >= self.max_angles[0]:
-            new_angle = new_angle
-        elif new_angle > self.max_angles[1]:
-            # moved too far left
-            new_angle = self.max_angles[1]
-        elif new_angle < self.max_angles[0]:
-            # moved too far right
-            new_angle = self.max_angles[0]
+
+        new_angle = clip(new_angle, self.max_angles[1], self.max_angles[0])
 
         delta_angle = (
             new_angle - self.angle

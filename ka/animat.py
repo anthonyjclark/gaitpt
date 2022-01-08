@@ -158,9 +158,9 @@ class Animat(object):
 
         # TODO: not hardcoded
         segs1 = [
-            HingedSegment(radians(15.0), max_angles, 1.0),
-            HingedSegment(radians(-15.0), max_angles, 1.0),
-            HingedSegment(radians(15.0), max_angles, 1.0),
+            HingedSegment(radians(30.0), max_angles, 1.0),
+            HingedSegment(radians(-30.0), max_angles, 1.0),
+            HingedSegment(radians(30.0), max_angles, 1.0),
         ]
         # segs2 = [
         #     HingedSegment(radians(-30.0), max_angles, 1.1),

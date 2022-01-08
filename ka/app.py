@@ -15,6 +15,7 @@ import time
 from animat import Animat
 from point import Pt
 
+
 # from controller import Actors
 
 Actor = Line2D
@@ -132,6 +133,25 @@ class App:
             [self.animat.front_hip.pos.x, self.animat.back_hip.pos.x],
             [self.animat.front_hip.pos.y, self.animat.back_hip.pos.y],
         )
+
+        # leg positions (for testing)
+        # line, = self.ax.plot(
+        #     [
+        #         pt.x
+        #         for pt in self.animat.legs[0].get_step_arc(
+        #             self.animat.legs[0].foot_pos, 10
+        #         )
+        #     ],
+        #     [
+        #         pt.y
+        #         for pt in self.animat.legs[0].get_step_arc(
+        #             self.animat.legs[0].foot_pos, 10
+        #         )
+        #     ],
+        #     marker="o",
+        #     linewidth=self.line_width,
+        # )
+
         self.plot.pyplot(plt)
 
     def create_actors(self):

@@ -28,6 +28,8 @@ class Hip(object):
         self.legs = legs
         self.states = []
 
+        self.get_leg_positions()  # to initialize their foot positions
+
     def add_leg(self, leg):
         """add leg without replacing current list
 
@@ -51,9 +53,9 @@ class Hip(object):
         for leg in self.legs:
 
             actors.append(leg.get_leg_positions(self.pos))
-            print(
-                f"leg {leg.id} has a foot at {actors[-1][-1]} and ankle at {actors[-1][-2]} "
-            )
+            # print(
+            #     f"leg {leg.id} has a foot at {actors[-1][-1]} and ankle at {actors[-1][-2]} "
+            # )
 
         return actors
 
