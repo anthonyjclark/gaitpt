@@ -83,14 +83,21 @@ class Animat:
         self.rear_right = Leg(rear_leg_angles, rear_leg_limits, rear_leg_lengths)
         self.legs = [self.front_left, self.front_right, self.rear_left, self.rear_right]
 
-    def _animate(self, positions: list[list[Point]]) -> FuncAnimation:
+    # def _animate(self, positions: list[list[Point]]) -> FuncAnimation:
+    def _animate(
+        self, frames: List[List[Tuple[List[float], List[float]]]]
+    ) -> FuncAnimation:
 
         # TODO: should work with more than one leg (list[list[list[Point]]])
 
         fig, ax = plt.subplots()
 
-        lines = [ax.plot([], [], marker="o", linewidth=3)[0] for _ in range(3)]
-        ax.plot([-1, 1], [positions[0][-1].y] * 2, "k")
+        lines = [
+            ax.plot([], [], marker="o", linewidth=3)[0] for _ in range(len(self.legs))
+        ]  # instead of one for each segment, one for each leg
+        ax.plot(
+            [-1, 1], [frames[0][0][1][-1]] * 2, "k"
+        )  # ground - first frame, first leg, rt side of tuple (y), last one (tip)
 
         def init():
             ax.set_xlim([-1, 1])
@@ -98,12 +105,19 @@ class Animat:
             return lines
 
         def update(frame, *fargs) -> Iterable:
+            # one frame would have one list of legs, each with an x,y list tuple
+
             for i, actor in enumerate(lines):
-                base, tip = frame[i], frame[i + 1]
-                actor.set_data([base.x, tip.x], [base.y, tip.y])
+                actor.set_data(
+                    frame[i][0], frame[i][1]
+                )  # accessing the info in the tuples
+
+                # old version
+                # base, tip = frame[i], frame[i + 1]
+                # actor.set_data([base.x, tip.x], [base.y, tip.y])
             return lines
 
-        animation = FuncAnimation(fig, update, frames=positions, init_func=init)
+        animation = FuncAnimation(fig, update, frames=frames, init_func=init)
         return animation
 
     def walk(self, animate=True) -> list[list[Point]] | FuncAnimation:
@@ -133,8 +147,8 @@ class Animat:
         # Forward motion path
         num_steps = 16
 
-        xs = [pos.x for pos in positions]
-        ys = [pos.y for pos in positions]
+        xs = [pos[0].x for pos in positions]
+        ys = [pos[0].y for pos in positions]
         # prev version
         # x, y = initial_position.x, initial_position.y
         delta_x = horiz_reach / num_steps
