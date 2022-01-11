@@ -73,7 +73,9 @@ class Animat:
             (deg(20), deg(160)),
         ]
         front_leg_lengths = [0.26, 0.42, 0.32]
-        self.front_left = Leg(front_leg_angles, front_leg_limits, front_leg_lengths)
+        self.front_left = Leg(
+            front_leg_angles, front_leg_limits, front_leg_lengths, hip=Point(0, 0.1)
+        )
         self.front_right = Leg(front_leg_angles, front_leg_limits, front_leg_lengths)
 
         rear_leg_angles = front_leg_angles
@@ -81,7 +83,7 @@ class Animat:
         rear_leg_lengths = [0.41, 0.42, 0.17]
 
         self.rear_left = Leg(
-            rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip
+            rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=Point(-0.5, 0.1)
         )
         self.rear_right = Leg(
             rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip
