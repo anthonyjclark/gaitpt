@@ -101,8 +101,8 @@ class Animat:
             ax.plot([], [], marker="o", linewidth=3)[0] for _ in range(len(self.legs))
         ]  # instead of one for each segment, one for each leg
         ax.plot(
-            [-1, 1], [frames[0][0][1][-1]] * 2, "k"
-        )  # ground - first frame, first leg, rt side of tuple (y), last one (tip)
+            [-1, 1], [frames[0][1][1][-1]] * 2, "k"
+        )  # ground - first frame, second leg, rt side of tuple (y), last one (tip)
 
         def init():
             ax.set_xlim([-1, 1])
