@@ -62,6 +62,7 @@ class Animat:
             by Alexander Spröwitz, Alexandre Tuleu, Massimo Vespignani, Mostafa Ajallooeian,
             Emilie Badri, Auke Jan Ijspeert
         """
+        back_hip = Point(-0.5, 0)
 
         # Angle and limits are relative to parent joint (or the world in the case of
         # the firt segment)
@@ -79,16 +80,18 @@ class Animat:
         rear_leg_limits = front_leg_limits
         rear_leg_lengths = [0.41, 0.42, 0.17]
 
-        self.rear_left = Leg(rear_leg_angles, rear_leg_limits, rear_leg_lengths)
-        self.rear_right = Leg(rear_leg_angles, rear_leg_limits, rear_leg_lengths)
+        self.rear_left = Leg(
+            rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip
+        )
+        self.rear_right = Leg(
+            rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip
+        )
         self.legs = [self.front_left, self.front_right, self.rear_left, self.rear_right]
 
     # def _animate(self, positions: list[list[Point]]) -> FuncAnimation:
     def _animate(
         self, frames: List[List[Tuple[List[float], List[float]]]]
     ) -> FuncAnimation:
-
-        # TODO: should work with more than one leg (list[list[list[Point]]])
 
         fig, ax = plt.subplots()
 
@@ -112,9 +115,6 @@ class Animat:
                     frame[i][0], frame[i][1]
                 )  # accessing the info in the tuples
 
-                # old version
-                # base, tip = frame[i], frame[i + 1]
-                # actor.set_data([base.x, tip.x], [base.y, tip.y])
             return lines
 
         animation = FuncAnimation(fig, update, frames=frames, init_func=init)
@@ -130,8 +130,6 @@ class Animat:
             list[list[Pose]] | FuncAnimation: pose data or animation
         """
 
-        # TODO: should work with more than one leg (list[list[list[Point]]])
-
         # TODO: vertical reach should go by length of leg
         horiz_reach = 0.6
         vertical_reach = 0.4
@@ -140,9 +138,6 @@ class Animat:
         positions = [
             [leg.tip_position()] for leg in self.legs
         ]  # should be a list[list[pts]]
-
-        # prev version
-        # initial_position = self.rear_left.tip_position()
 
         # Forward motion path
         num_steps = 16
@@ -168,20 +163,11 @@ class Animat:
                 ys[i] += delta_y if step < num_steps // 2 else -delta_y
                 positions[i].append(Point(x=xs[i], y=ys[i]))
 
-            # prev version
-            # x += delta_x
-            # y += delta_y if step < num_steps // 2 else -delta_y
-            # left_leg_positions.append(Point(x=x, y=y))
-
         # Backward motion path
         for _ in range(int(num_steps * 1.5)):
             for i in range(len(self.legs)):
                 xs[i] -= delta_x
                 positions[i].append(Point(x=xs[i], y=ys[i]))
-
-            # prev version
-            # x -= delta_x
-            # left_leg_positions.append(Point(x=x, y=y))
 
         # Path back to initial position
         for step in range(num_steps // 2):
@@ -190,14 +176,6 @@ class Animat:
                 xs[i] += delta_x
                 ys[i] += delta_y if step < num_steps // 4 else -delta_y
                 positions[i].append(Point(x=xs[i], y=ys[i]))
-
-            # prev version
-            # x += delta_x
-            # y += delta_y if step < num_steps // 4 else -delta_y
-            # left_leg_positions.append(Point(x=x, y=y))
-
-        # prev version
-        # positions = [[p.point for p in self.rear_left.global_joint_poses()]]
 
         initial_pts = self.get_pts_from_gjp()
 
@@ -231,12 +209,6 @@ class Animat:
 
         return self._animate(frames) if animate else frames
 
-        # prev version
-        # for goal in left_leg_positions:
-        #     self.rear_left.move_tip(goal)
-        #     positions.append([p.point for p in self.rear_left.global_joint_poses()])
-        # return self._animate(positions) if animate else positions
-
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
         xs = []
@@ -265,6 +237,7 @@ class Leg:
         angles: list[float],
         limits: list[tuple[float, float]],
         lengths: list[float],
+        hip: Point = Point(),  # 0,0 by default
     ) -> None:
         """Create a single leg.
 
@@ -275,6 +248,7 @@ class Leg:
         """
 
         self.num_segments = 3
+        self.hip = hip
 
         assert len(angles) == self.num_segments
         assert len(limits) == self.num_segments
@@ -294,7 +268,7 @@ class Leg:
         """
 
         # Position and angle of hip
-        poses = [Pose(Point(), self.angles[0])]
+        poses = [Pose(self.hip, self.angles[0])]
 
         for i in range(self.num_segments):
             parent_angle = poses[-1].angle
