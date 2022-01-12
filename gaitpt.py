@@ -53,7 +53,7 @@ class Pose:
 
 
 class Animat:
-    def __init__(self) -> None:
+    def __init__(self, file: str = None) -> None:
         """Implementing a four-legged, walking animat.
 
         Some dimensions and angles inspired by:
@@ -62,33 +62,47 @@ class Animat:
             by Alexander Spröwitz, Alexandre Tuleu, Massimo Vespignani, Mostafa Ajallooeian,
             Emilie Badri, Auke Jan Ijspeert
         """
-        back_hip = Point(-0.5, 0)
 
-        # Angle and limits are relative to parent joint (or the world in the case of
-        # the firt segment)
-        front_leg_angles = [deg(300), deg(-80), deg(80)]
-        front_leg_limits = [
-            (deg(270), deg(340)),
-            (deg(-160), deg(20)),
-            (deg(20), deg(160)),
-        ]
-        front_leg_lengths = [0.26, 0.42, 0.32]
-        self.front_left = Leg(
-            front_leg_angles, front_leg_limits, front_leg_lengths, hip=Point(0, 0.1)
-        )
-        self.front_right = Leg(front_leg_angles, front_leg_limits, front_leg_lengths)
+        if file:
+            # create from specifications
+            pass
 
-        rear_leg_angles = front_leg_angles
-        rear_leg_limits = front_leg_limits
-        rear_leg_lengths = [0.41, 0.42, 0.17]
+        else:
 
-        self.rear_left = Leg(
-            rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=Point(-0.5, 0.1)
-        )
-        self.rear_right = Leg(
-            rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip
-        )
-        self.legs = [self.front_left, self.front_right, self.rear_left, self.rear_right]
+            back_hip = Point(-0.5, 0)
+
+            # Angle and limits are relative to parent joint (or the world in the case of
+            # the firt segment)
+            front_leg_angles = [deg(300), deg(-80), deg(80)]
+            front_leg_limits = [
+                (deg(270), deg(340)),
+                (deg(-160), deg(20)),
+                (deg(20), deg(160)),
+            ]
+            front_leg_lengths = [0.26, 0.42, 0.32]
+            self.front_left = Leg(
+                front_leg_angles, front_leg_limits, front_leg_lengths, hip=Point(0, 0.1)
+            )
+            self.front_right = Leg(
+                front_leg_angles, front_leg_limits, front_leg_lengths
+            )
+
+            rear_leg_angles = front_leg_angles
+            rear_leg_limits = front_leg_limits
+            rear_leg_lengths = [0.41, 0.42, 0.17]
+
+            self.rear_left = Leg(
+                rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=Point(-0.5, 0.1)
+            )
+            self.rear_right = Leg(
+                rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip
+            )
+            self.legs = [
+                self.front_left,
+                self.front_right,
+                self.rear_left,
+                self.rear_right,
+            ]
 
     # def _animate(self, positions: list[list[Point]]) -> FuncAnimation:
     def _animate(
