@@ -122,7 +122,7 @@ class Animat:
         animation = FuncAnimation(fig, update, frames=frames, init_func=init)
         return animation
 
-    def walk(self, animate=True) -> list[list[Point]] | FuncAnimation:
+    def walk(self, animate=True) -> list[list[list[Pose]]] | FuncAnimation:
         """Compute joint angles for a walking gait.
 
         Args:
@@ -141,18 +141,23 @@ class Animat:
             [leg.tip_position()] for leg in self.legs
         ]  # should be a list[list[pts]]
 
+        stay_positions = positions  # since they only have a "stay still" goal at first
+
         # Forward motion path
         num_steps = 16
 
         xs = [pos[0].x for pos in positions]
         ys = [pos[0].y for pos in positions]
-        # prev version
-        # x, y = initial_position.x, initial_position.y
-        delta_x = horiz_reach / num_steps
-        delta_y = 2 * vertical_reach / num_steps
 
         # prev version
-        # left_leg_positions = [initial_position]
+        # delta_x = horiz_reach / num_steps
+        delta_y = 2 * vertical_reach / num_steps
+
+        # first do reach
+        horiz_reaches = [leg.max_reach for leg in self.legs]
+        x_delts = [
+            (reach / num_steps) * 0.6 for reach in horiz_reaches
+        ]  # full for sprint,
 
         assert len(xs) == len(ys), "Different x and y lengths for legs"
 
@@ -161,23 +166,42 @@ class Animat:
             for i in range(
                 len(self.legs)
             ):  # assuming same lengths, we can do it all here
-                xs[i] += delta_x
+                # xs[i] += delta_x
+                xs[i] += x_delts[i]
                 ys[i] += delta_y if step < num_steps // 2 else -delta_y
                 positions[i].append(Point(x=xs[i], y=ys[i]))
 
         # Backward motion path
         for _ in range(int(num_steps * 1.5)):
             for i in range(len(self.legs)):
-                xs[i] -= delta_x
+                # xs[i] -= delta_x
+                xs[i] -= x_delts[i]
                 positions[i].append(Point(x=xs[i], y=ys[i]))
 
         # Path back to initial position
         for step in range(num_steps // 2):
 
             for i in range(len(self.legs)):
-                xs[i] += delta_x
+                # xs[i] += delta_x
+                xs[i] += x_delts[i]
                 ys[i] += delta_y if step < num_steps // 4 else -delta_y
                 positions[i].append(Point(x=xs[i], y=ys[i]))
+
+        # walk order is: fr, br, fl, bl
+        # fl_len = len(positions[0])
+        # fr_len = len(positions[1])
+        # bl_len = len(positions[2])
+        # br_len = len(positions[3])
+
+        # # pad each leg's positions out so that they 'wait' for their turn. imagine 4 chunks, each either step or wait
+        # positions[0] = (
+        #     stay_positions[0] * fl_len * 2 + positions[0] + stay_positions[0] * fl_len
+        # )  # fl
+        # positions[1] = positions[1] + stay_positions[1] * fr_len * 3  # fr
+        # positions[2] = stay_positions[2] * bl_len * 3 + positions[2]  # bl
+        # positions[3] = (
+        #     stay_positions[3] * br_len + positions[3] + stay_positions[3] * br_len * 2
+        # )  # br
 
         initial_pts = self.get_pts_from_gjp()
 
@@ -198,16 +222,23 @@ class Animat:
             for leg_idx, leg in enumerate(self.legs):
                 leg.move_tip(positions[leg_idx][goal_idx])
 
-            all_pts = self.get_pts_from_gjp()
+            if animate:
+                all_pts = self.get_pts_from_gjp()
 
-            frames.append(
-                [
-                    self.split_pts(all_pts[0]),
-                    self.split_pts(all_pts[1]),
-                    self.split_pts(all_pts[2]),
-                    self.split_pts(all_pts[3]),
-                ]
-            )
+                frames.append(
+                    [
+                        self.split_pts(all_pts[0]),
+                        self.split_pts(all_pts[1]),
+                        self.split_pts(all_pts[2]),
+                        self.split_pts(all_pts[3]),
+                    ]
+                )
+            else:
+                # if we're not animating, we need the full poses
+                frame = []
+                for leg in self.legs:
+                    frame.append(leg.global_joint_poses)
+                frames.append(frame)
 
         return self._animate(frames) if animate else frames
 
@@ -222,7 +253,7 @@ class Animat:
         return (xs, ys)
 
     def get_pts_from_gjp(self) -> List[List[Point]]:
-        # runs global_joint_poses on each leg in self.legs and returns a list of points
+        # runs global_joint_poses on each leg in self.legs and returns a list of points for each leg
         all_pts = []
 
         for leg in self.legs:
@@ -332,7 +363,7 @@ class Leg:
                 # Compute the new angle and clip within specified limits
                 self.angles[i] = clip(new_angle, lo_limit, hi_limit)
 
-            # Check if close enough to goa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    l
+            # Check if close enough to goal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               l
             dist = (goal - self.tip_position()).norm
             if abs(dist) < tolerance:
                 break
