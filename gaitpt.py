@@ -7,6 +7,7 @@ from math import atan2, cos, inf, pi, sin, sqrt, radians, degrees
 from typing import Iterable, List, Tuple
 import numpy as np
 import csv
+import json
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -49,7 +50,7 @@ class Point:
         return rad(pt2_angle - pt1_angle)
 
 
-@dataclass(repr=False)
+@dataclass(repr=False)  # don't overwrite repr fx
 class Pose:
     point: Point
     angle: float
@@ -71,7 +72,35 @@ class Animat:
 
         if file:
             # create from specifications
-            pass
+            f = open(file)
+            f = json.load(f)
+            data = f["animat"]
+
+            back_hip = Point(data["hips"][1], data["height"])
+            front_hip = Point(data["hips"][0], data["height"])
+
+            self.legs = []
+
+            for leg_dict in data["legs"]:
+
+                angles = []
+                for angle in leg_dict["angles"]:
+                    # gotta convert all of these to degrees
+                    angles.append(deg(angle))
+
+                limits = []
+                for limit in leg_dict["limits"]:
+                    # each is a 2-len tuple, but in json can only do lists
+                    limits.append((deg(limit[0]), deg(limit[1])))
+
+                lengths = leg_dict["lengths"]
+
+                hip = front_hip if leg_dict["hip"] == 0 else back_hip
+
+                self.legs.append(Leg(angles, limits, lengths, hip))
+
+            self.legs[1].raise_hip()
+            self.legs[3].raise_hip()
 
         else:
 
@@ -394,6 +423,10 @@ class Leg:
 
             prev_dist = dist
 
+    def raise_hip(self):
+        # just raises the hip a tiny bit so that we can see all 4 legs in animation
+        self.hip = Point(self.hip.x, self.hip.y + 0.1)
+
 
 def save_data(data: List[List[List[Pose]]], filename: str):
     # writes data to file
@@ -406,12 +439,19 @@ def save_data(data: List[List[List[Pose]]], filename: str):
             writer.writerow(arr)
 
 
-animat = Animat()
-animation = animat.walk()
-training_data = animat.walk(animate=False)
-save_data(training_data, "walk_example.csv")
-HTML(animation.to_jshtml())
-animation.save("example.gif")
+# animat = Animat()
+# animation = animat.walk()
+# training_data = animat.walk(animate=False)
+# save_data(training_data, "walk_example.csv")
+# HTML(animation.to_jshtml())
+# animation.save("example.gif")
 
+# test creation from json file
+animat2 = Animat(file="sample_json.json")
+animation2 = animat2.walk()
+training_data = animat2.walk(animate=False)
+save_data(training_data, "walk_example.csv")
+HTML(animation2.to_jshtml())
+animation2.save("example2.gif")
 
 # %%
