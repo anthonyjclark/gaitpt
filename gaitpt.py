@@ -5,10 +5,13 @@ from itertools import accumulate
 from loguru import logger
 from math import atan2, cos, inf, pi, sin, sqrt, radians, degrees
 from typing import Iterable, List, Tuple
+import numpy as np
+import csv
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from IPython.display import HTML
+from numpy.lib.function_base import angle
 
 
 def clip(val: float, lo: float, hi: float) -> float:
@@ -46,10 +49,13 @@ class Point:
         return rad(pt2_angle - pt1_angle)
 
 
-@dataclass
+@dataclass(repr=False)
 class Pose:
     point: Point
     angle: float
+
+    def __repr__(self):
+        return f"(({self.point.x}, {self.point.y}), {self.angle})"
 
 
 class Animat:
@@ -251,7 +257,7 @@ class Animat:
                 # if we're not animating, we need the full poses
                 frame = []
                 for leg in self.legs:
-                    frame.append(leg.global_joint_poses)
+                    frame.append(leg.global_joint_poses())
                 frames.append(frame)
 
         return self._animate(frames) if animate else frames
@@ -389,8 +395,21 @@ class Leg:
             prev_dist = dist
 
 
+def save_data(data: List[List[List[Pose]]], filename: str):
+    # writes data to file
+    with open(filename, "w", newline="") as f:
+        writer = csv.writer(f)
+
+        for frame in data:
+            # each frame is a row
+            arr = np.array(frame)
+            writer.writerow(arr)
+
+
 animat = Animat()
 animation = animat.walk()
+training_data = animat.walk(animate=False)
+save_data(training_data, "walk_example.csv")
 HTML(animation.to_jshtml())
 animation.save("example.gif")
 
