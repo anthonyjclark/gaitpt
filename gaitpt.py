@@ -315,7 +315,8 @@ class Animat:
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
         x_delts = [
-            (reach / num_steps) * 0.6 for reach in horiz_reaches
+            (reach / num_steps) * job_dict["reach multiplier"]
+            for reach in horiz_reaches
         ]  # full for sprint,
 
         for curr_ft in foot_order:
@@ -406,6 +407,34 @@ class Animat:
         animation.save(f'{job_dict["name"]}.gif')
 
         save_data(save_frames, f'{job_dict["name"]}.csv')
+
+    def trot_job(self, job_dict: dict):
+        # specifically for trot => max two legs on the ground, no suspend state
+        # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
+        vertical_reach = 0.4
+        hor_reach = job_dict["reach multiplier"]
+        foot_order = job_dict["foot order"]
+
+        # Initial position given by current leg positions
+        positions = [
+            [leg.tip_position()] for leg in self.legs
+        ]  # should be a list[list[pts]]
+
+        stay_positions = positions  # since they only have a "stay still" goal at first
+
+        # Forward motion path
+        num_steps = 16
+
+        xs = [pos[0].x for pos in positions]
+        ys = [pos[0].y for pos in positions]
+
+        delta_y = 2 * vertical_reach / num_steps
+
+        # first do reach
+        horiz_reaches = [leg.max_reach for leg in self.legs]
+        x_delts = [
+            (reach / num_steps) * 0.6 for reach in horiz_reaches
+        ]  # full for sprint,
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
