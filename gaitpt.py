@@ -100,8 +100,8 @@ class Animat:
 
                 self.legs.append(Leg(angles, limits, lengths, hip))
 
-            self.legs[1].raise_hip()
-            self.legs[3].raise_hip()
+            # self.legs[1].raise_hip()
+            # self.legs[3].raise_hip()
 
             self.ground = self.legs[0].global_joint_poses()[-1].point.y
 
@@ -432,8 +432,6 @@ class Animat:
         while np.min(stages) <= 3:
 
             # load up the next foot order, if there is one
-            ic(stages)
-            # ic(foot_order[fo_idx])
 
             if fo_idx < len(foot_order):
 
@@ -442,7 +440,6 @@ class Animat:
                     stages[leg_idx] = 1
 
                 fo_idx += 1
-            ic(stages)
 
             for i, leg in enumerate(self.legs):
                 # for each leg, check what stage they're in and add the appropriate positions
@@ -454,11 +451,11 @@ class Animat:
                     # needs to step forward all the way
                     for step in range(num_steps):
                         xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 2 else -delta_y
-                        if step > num_steps // 2:
-                            positions[i].append(
-                                Point(x=xs[i], y=max(ys[i], self.ground))
-                            )
+                        ys[i] += delta_y if step < num_steps / 2 else -delta_y
+                        ic(i)
+                        ic(ys[i])
+                        if step > num_steps / 2 and ys[i] < self.ground:
+                            positions[i].append(Point(x=xs[i], y=self.ground))
                         else:
                             positions[i].append(Point(x=xs[i], y=ys[i]))
 
@@ -467,13 +464,18 @@ class Animat:
                     # move backward
                     for step in range(int(num_steps * 1.5)):
                         xs[i] -= x_delts[i]
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
+                        if ys[i] < self.ground:  # clip it so it doesn't go below
+                            ys[i] = self.ground
+                        # ic(ys[i])
+                        positions[i].append(Point(x=xs[i], y=self.ground))
                     stages[i] += 1
                 elif stages[i] == 3:
                     # reposition
                     for step in range(num_steps // 2):
                         xs[i] += x_delts[i]
                         ys[i] += delta_y if step < num_steps // 4 else -delta_y
+                        if ys[i] < self.ground:  # clip it so it doesn't go below
+                            ys[i] = self.ground
                         positions[i].append(Point(x=xs[i], y=ys[i]))
                     stages[i] += 1
 
