@@ -103,6 +103,8 @@ class Animat:
             self.legs[1].raise_hip()
             self.legs[3].raise_hip()
 
+            self.ground = self.legs[0].global_joint_poses()[-1].point.y
+
         else:
 
             back_hip = Point(-0.5, 0)
@@ -151,7 +153,7 @@ class Animat:
             ax.plot([], [], marker="o", linewidth=3)[0] for _ in range(len(self.legs))
         ]  # instead of one for each segment, one for each leg
         ax.plot(
-            [-1, 1], [frames[0][1][1][-1]] * 2, "k"
+            [-1, 1], [self.ground] * 2, "k"
         )  # ground - first frame, second leg, rt side of tuple (y), last one (tip)
 
         def init():
@@ -236,22 +238,6 @@ class Animat:
                 xs[i] += x_delts[i]
                 ys[i] += delta_y if step < num_steps // 4 else -delta_y
                 positions[i].append(Point(x=xs[i], y=ys[i]))
-
-        # walk order is: fr, br, fl, bl
-        # fl_len = len(positions[0])
-        # fr_len = len(positions[1])
-        # bl_len = len(positions[2])
-        # br_len = len(positions[3])
-
-        # # pad each leg's positions out so that they 'wait' for their turn. imagine 4 chunks, each either step or wait
-        # positions[0] = (
-        #     stay_positions[0] * fl_len * 2 + positions[0] + stay_positions[0] * fl_len
-        # )  # fl
-        # positions[1] = positions[1] + stay_positions[1] * fr_len * 3  # fr
-        # positions[2] = stay_positions[2] * bl_len * 3 + positions[2]  # bl
-        # positions[3] = (
-        #     stay_positions[3] * br_len + positions[3] + stay_positions[3] * br_len * 2
-        # )  # br
 
         initial_pts = self.get_pts_from_gjp()
 
@@ -469,7 +455,13 @@ class Animat:
                     for step in range(num_steps):
                         xs[i] += x_delts[i]
                         ys[i] += delta_y if step < num_steps // 2 else -delta_y
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
+                        if step > num_steps // 2:
+                            positions[i].append(
+                                Point(x=xs[i], y=max(ys[i], self.ground))
+                            )
+                        else:
+                            positions[i].append(Point(x=xs[i], y=ys[i]))
+
                     stages[i] += 1
                 elif stages[i] == 2:
                     # move backward
