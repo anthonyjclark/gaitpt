@@ -699,7 +699,7 @@ with open("sample_json.json", "r") as f:
     jobs = f["jobs"]
 
     for job in jobs:
-        if job["name"] == "canter":
+        if job["name"] == "canter" or job["name"] == "walk":
             animat2.canter_job(job)
         else:
             # animat2.do_job(job)
