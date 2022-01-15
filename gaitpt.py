@@ -149,9 +149,14 @@ class Animat:
 
         fig, ax = plt.subplots()
 
-        lines = [
-            ax.plot([], [], marker="o", linewidth=3)[0] for _ in range(len(self.legs))
-        ]  # instead of one for each segment, one for each leg
+        lines = (
+            []
+        )  # one for each leg. left side legs marked with circle, right with square
+        lines.append(ax.plot([], [], marker="o", linewidth=3)[0])
+        lines.append(ax.plot([], [], marker="s", linewidth=3)[0])
+        lines.append(ax.plot([], [], marker="o", linewidth=3)[0])
+        lines.append(ax.plot([], [], marker="s", linewidth=3)[0])
+
         ax.plot(
             [-1, 1], [self.ground] * 2, "k"
         )  # ground - first frame, second leg, rt side of tuple (y), last one (tip)
@@ -451,10 +456,9 @@ class Animat:
                     # needs to step forward all the way
                     for step in range(num_steps):
                         xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps / 2 else -delta_y
-                        ic(i)
-                        ic(ys[i])
-                        if step > num_steps / 2 and ys[i] < self.ground:
+                        ys[i] += delta_y if step < num_steps // 2 else -delta_y
+                        if step > num_steps // 2 and ys[i] < self.ground:
+                            ic("clipped")
                             positions[i].append(Point(x=xs[i], y=self.ground))
                         else:
                             positions[i].append(Point(x=xs[i], y=ys[i]))
@@ -464,9 +468,6 @@ class Animat:
                     # move backward
                     for step in range(int(num_steps * 1.5)):
                         xs[i] -= x_delts[i]
-                        if ys[i] < self.ground:  # clip it so it doesn't go below
-                            ys[i] = self.ground
-                        # ic(ys[i])
                         positions[i].append(Point(x=xs[i], y=self.ground))
                     stages[i] += 1
                 elif stages[i] == 3:
@@ -630,6 +631,7 @@ class Leg:
             logger.warning(f"The position {goal} is beyond the reach of the leg.")
 
         prev_dist = inf
+        ic(goal)
 
         for _ in range(max_steps):
 
