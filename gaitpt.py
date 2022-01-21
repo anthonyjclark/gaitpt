@@ -287,124 +287,6 @@ class Animat:
 
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
-        vertical_reach = 0.4
-        hor_reach = job_dict["reach multiplier"]
-        foot_order = job_dict["foot order"]
-
-        # Initial position given by current leg positions
-        positions = [
-            [leg.tip_position()] for leg in self.legs
-        ]  # should be a list[list[pts]]
-
-        stay_positions = positions  # since they only have a "stay still" goal at first
-
-        # Forward motion path
-        num_steps = 16
-
-        xs = [pos[0].x for pos in positions]
-        ys = [pos[0].y for pos in positions]
-
-        delta_y = 2 * vertical_reach / num_steps
-
-        # first do reach
-        horiz_reaches = [leg.max_reach for leg in self.legs]
-        x_delts = [
-            (reach / num_steps) * job_dict["reach multiplier"]
-            for reach in horiz_reaches
-        ]  # full for sprint,
-
-        for curr_ft in foot_order:
-            # only some legs are moving at this time
-
-            for step in range(num_steps):
-
-                for i in range(
-                    len(self.legs)
-                ):  # assuming same lengths, we can do it all here
-                    # xs[i] += delta_x
-                    if i in curr_ft:
-                        xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 2 else -delta_y
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
-                    else:
-                        # not moving, just use the last position
-                        positions[i].append(positions[i][-1])
-
-            # Backward motion path
-            for _ in range(int(num_steps * 1.5)):
-                for i in range(len(self.legs)):
-                    if i in curr_ft:
-                        xs[i] -= x_delts[i]
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
-                    else:
-                        positions[i].append(positions[i][-1])
-            # Path back to initial position
-            for step in range(num_steps // 2):
-
-                for i in range(len(self.legs)):
-                    if i in curr_ft:
-                        xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 4 else -delta_y
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
-                    else:
-                        positions[i].append(positions[i][-1])
-
-            initial_pts = self.get_pts_from_gjp()
-
-        # for each leg, we're going to run gjp on it, strip only the points out, and then separate the points into tuples of x,y
-        anim_frames = [
-            [
-                self.split_pts(initial_pts[0]),
-                self.split_pts(initial_pts[1]),
-                self.split_pts(initial_pts[2]),
-                self.split_pts(initial_pts[3]),
-            ]
-        ]  # each frame contains info for one step of all 4 legs
-
-        save_frames = [
-            [
-                self.legs[0].global_joint_poses(),
-                self.legs[1].global_joint_poses(),
-                self.legs[2].global_joint_poses(),
-                self.legs[3].global_joint_poses(),
-            ]
-        ]
-
-        # Compute joint angles for each point along the path
-        # weird structure bc we want them separated by frames and not by leg
-        # again, assuming all lens same
-        for goal_idx in range(len(positions[0])):
-
-            for leg_idx, leg in enumerate(self.legs):
-                leg.move_tip(positions[leg_idx][goal_idx])
-
-            # animate
-            all_pts = self.get_pts_from_gjp()
-
-            anim_frames.append(
-                [
-                    self.split_pts(all_pts[0]),
-                    self.split_pts(all_pts[1]),
-                    self.split_pts(all_pts[2]),
-                    self.split_pts(all_pts[3]),
-                ]
-            )
-
-            # save results
-            # if we're not animating, we need the full poses
-            frame = []
-            for leg in self.legs:
-                frame.append(leg.global_joint_poses())
-            save_frames.append(frame)
-
-        animation = self._animate(anim_frames)
-        HTML(animation.to_jshtml())
-        animation.save(f'{job_dict["name"]}.gif')
-
-        save_data(save_frames, f'{job_dict["name"]}.csv')
-
-    def canter_job(self, job_dict: dict):
-        # specifically for trot => max two legs on the ground, no suspend state
         # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
         vertical_reach = 0.4
         hor_reach = job_dict["reach multiplier"]
@@ -434,152 +316,15 @@ class Animat:
 
         # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
         stages = [0] * len(self.legs)
-        ic(stages)
         fo_idx = 0  # to cycle through the feet that need to move
 
         while np.min(stages) <= 3:
 
             # load up the next foot order, if there is one
-
-            if fo_idx < len(foot_order):
-
-                for leg_idx in foot_order[fo_idx]:
-                    # these need to start stepping forward
-                    stages[leg_idx] = 1
-
-                fo_idx += 1
-
-            for i, leg in enumerate(self.legs):
-                # for each leg, check what stage they're in and add the appropriate positions
-                if stages[i] == 0 or stages[i] == 4:
-                    # staging, don't move forward automatically
-                    for step in range(num_steps):
-                        # just stay still
-                        positions[i].append(positions[i][-1])
-                elif stages[i] == 1:
-                    # needs to step forward all the way
-                    for step in range(num_steps):
-                        xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 2 else -delta_y
-                        if step > num_steps // 2 and ys[i] < self.ground:
-                            ic("clipped")
-                            positions[i].append(Point(x=xs[i], y=self.ground))
-                        else:
-                            positions[i].append(Point(x=xs[i], y=ys[i]))
-
-                    stages[i] += 1
-                elif stages[i] == 2:
-                    # move backward
-                    for step in range(int(num_steps * 1.5)):
-                        xs[i] -= x_delts[i]
-                        positions[i].append(Point(x=xs[i], y=self.ground))
-                    stages[i] += 1
-                elif stages[i] == 3:
-                    # reposition
-                    for step in range(num_steps // 2):
-                        xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 4 else -delta_y
-                        if ys[i] < self.ground:  # clip it so it doesn't go below
-                            ys[i] = self.ground
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
-                    stages[i] += 1
-
-        initial_pts = self.get_pts_from_gjp()
-        # for each leg, we're going to run gjp on it, strip only the points out, and then separate the points into tuples of x,y
-        anim_frames = [
-            [
-                self.split_pts(initial_pts[0]),
-                self.split_pts(initial_pts[1]),
-                self.split_pts(initial_pts[2]),
-                self.split_pts(initial_pts[3]),
-            ]
-        ]  # each frame contains info for one step of all 4 legs
-
-        save_frames = [
-            [
-                self.legs[0].global_joint_poses(),
-                self.legs[1].global_joint_poses(),
-                self.legs[2].global_joint_poses(),
-                self.legs[3].global_joint_poses(),
-            ]
-        ]
-
-        # Compute joint angles for each point along the path
-        # weird structure bc we want them separated by frames and not by leg
-        # again, assuming all lens same
-        for goal_idx in range(len(positions[0])):
-
-            for leg_idx, leg in enumerate(self.legs):
-                leg.move_tip(positions[leg_idx][goal_idx])
-
-            # animate
-            all_pts = self.get_pts_from_gjp()
-
-            anim_frames.append(
-                [
-                    self.split_pts(all_pts[0]),
-                    self.split_pts(all_pts[1]),
-                    self.split_pts(all_pts[2]),
-                    self.split_pts(all_pts[3]),
-                ]
-            )
-
-            # save results
-            # if we're not animating, we need the full poses
-            frame = []
-            for leg in self.legs:
-                frame.append(leg.global_joint_poses())
-            save_frames.append(frame)
-
-        animation = self._animate(anim_frames)
-        HTML(animation.to_jshtml())
-        animation.save(f'{job_dict["name"]}.gif')
-
-        save_data(save_frames, f'{job_dict["name"]}.csv')
-
-    def trot_job(self, job_dict: dict):
-        # specifically for trot => max two legs on the ground, no suspend state
-        # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
-        vertical_reach = 0.4
-        hor_reach = job_dict["reach multiplier"]
-        foot_order = job_dict["foot order"]
-
-        # Initial position given by current leg positions
-        positions = [
-            [leg.tip_position()] for leg in self.legs
-        ]  # should be a list[list[pts]]
-
-        stay_positions = positions  # since they only have a "stay still" goal at first
-
-        # Forward motion path
-        num_steps = 16
-
-        xs = [pos[0].x for pos in positions]
-        ys = [pos[0].y for pos in positions]
-
-        delta_y = 2 * vertical_reach / num_steps
-
-        # first do reach
-        horiz_reaches = [leg.max_reach for leg in self.legs]
-        x_delts = [
-            (reach / num_steps) * job_dict["reach multiplier"]
-            for reach in horiz_reaches
-        ]
-
-        # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
-        stages = [0] * len(self.legs)
-        ic(stages)
-        fo_idx = 0  # to cycle through the feet that need to move
-
-        while np.min(stages) <= 3:
-
-            # load up the next foot order, if there is one
-            ic("running")
 
             if fo_idx < len(foot_order):
 
                 if len(foot_order[fo_idx]) == 0:
-                    ic("continued")
                     fo_idx += 1
                     continue
 
@@ -602,7 +347,6 @@ class Animat:
                         xs[i] += x_delts[i]
                         ys[i] += delta_y if step < num_steps // 2 else -delta_y
                         if step > num_steps // 2 and ys[i] < self.ground:
-                            ic("clipped")
                             positions[i].append(Point(x=xs[i], y=self.ground))
                         else:
                             positions[i].append(Point(x=xs[i], y=ys[i]))
@@ -777,7 +521,6 @@ class Leg:
             logger.warning(f"The position {goal} is beyond the reach of the leg.")
 
         prev_dist = inf
-        ic(goal)
 
         for _ in range(max_steps):
 
@@ -845,12 +588,13 @@ with open("sample_json.json", "r") as f:
     jobs = f["jobs"]
 
     for job in jobs:
-        if job["name"] == "canter" or job["name"] == "walk":
-            # animat2.canter_job(job)
-            pass
-        elif job["name"] == "trot":
-            animat2.trot_job(job)
-            pass
+        animat2.do_job(job)
+        # if job["name"] == "canter" or job["name"] == "walk":
+        #     # animat2.canter_job(job)
+        #     pass
+        # elif job["name"] == "trot":
+        #     animat2.trot_job(job)
+        #     pass
 
 # animation2 = animat2.walk()
 # training_data = animat2.walk(animate=False)
