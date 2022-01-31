@@ -9,6 +9,8 @@ import numpy as np
 import csv
 import json
 from icecream import ic
+import math
+
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -105,6 +107,8 @@ class Animat:
             # self.legs[3].raise_hip()
 
             self.ground = self.legs[0].global_joint_poses()[-1].point.y
+            for leg in self.legs:
+                leg.set_ground(self.ground)
 
         else:
 
@@ -384,10 +388,10 @@ class Animat:
 
         save_frames = [
             [
-                self.legs[0].global_joint_poses(),
-                self.legs[1].global_joint_poses(),
-                self.legs[2].global_joint_poses(),
-                self.legs[3].global_joint_poses(),
+                self.legs[0].global_joint_poses()[1],
+                self.legs[1].global_joint_poses()[1],
+                self.legs[2].global_joint_poses()[1],
+                self.legs[3].global_joint_poses()[1],
             ]
         ]
 
@@ -415,7 +419,7 @@ class Animat:
             # if we're not animating, we need the full poses
             frame = []
             for leg in self.legs:
-                frame.append(leg.global_joint_poses())
+                frame.append(leg.global_joint_poses()[1])
             save_frames.append(frame)
 
         animation = self._animate(anim_frames)
@@ -476,6 +480,11 @@ class Leg:
 
         self.max_reach = sum(self.lengths)
 
+        self.ground = None
+
+    def set_ground(self, ground):
+        self.ground = ground
+
     def global_joint_poses(self) -> list[Pose]:
         """Compute the global position and angle of each joint.
 
@@ -506,6 +515,15 @@ class Leg:
         """
         return self.global_joint_poses()[-1].point
 
+    def get_ankle(self) -> Point:
+        """Compute the position of the ankle
+
+        Returns:
+            Point: second to last joint position as a Point
+        """
+
+        return self.global_joint_poses()[-2].point
+
     def move_tip(
         self, goal: Point, max_steps: int = 100, tolerance: float = 1e-1
     ) -> None:
@@ -535,6 +553,26 @@ class Leg:
                 joint_to_goal = goal - joint_poses[i].point
 
                 rotation_amount = Point.angle_between(joint_to_tip, joint_to_goal)
+
+                if i == self.num_segments - 1 and self.ground:
+                    ic("last segment")
+                    # use pythagoras to figure out the max angle before dipping below ground
+                    ankle = self.get_ankle()
+                    foot = self.tip_position()
+
+                    ht = ankle.y - self.ground
+                    hypot = self.lengths[-1]
+                    base = sqrt(ht ** 2 + hypot ** 2)
+
+                    # first point that leg would reach by rotating ankle angle
+                    ground_pos = Point(ankle.x + base, self.ground)
+
+                    angle_to_grd = Point.angle_between(joint_to_tip, ground_pos)
+
+                    # compare to previous rotation amount
+                    if abs(rotation_amount) > abs(angle_to_grd):
+                        ic("clipped to ground")
+                        rotation_amount = angle_to_grd
 
                 new_angle = rad(joint_poses[i].angle + rotation_amount)
 
@@ -589,12 +627,6 @@ with open("sample_json.json", "r") as f:
 
     for job in jobs:
         animat2.do_job(job)
-        # if job["name"] == "canter" or job["name"] == "walk":
-        #     # animat2.canter_job(job)
-        #     pass
-        # elif job["name"] == "trot":
-        #     animat2.trot_job(job)
-        #     pass
 
 # animation2 = animat2.walk()
 # training_data = animat2.walk(animate=False)
