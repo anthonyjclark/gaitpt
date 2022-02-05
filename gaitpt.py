@@ -84,13 +84,19 @@ class Animat:
             front_hip = Point(data["hips"][0], data["height"])
 
             self.legs = []
+            ic(self.legs)
+            ic(data["legs"])
+            ic(len(data["legs"]))
 
             for leg_dict in data["legs"]:
+                ic("entered for")
 
                 angles = []
                 for angle in leg_dict["angles"]:
                     # gotta convert all of these to degrees
                     angles.append(deg(angle))
+
+                ic(self.legs)
 
                 limits = []
                 for limit in leg_dict["limits"]:
@@ -99,14 +105,12 @@ class Animat:
 
                 lengths = leg_dict["lengths"]
 
+                ic(self.legs)
+
                 hip = front_hip if leg_dict["hip"] == 0 else back_hip
 
                 self.legs.append(Leg(angles, limits, lengths, hip))
-                # self.legs.reverse()
-
-            # no longer necessary bc of different marker usage for l/r sides
-            # self.legs[1].raise_hip()
-            # self.legs[3].raise_hip()
+                self.legs.reverse()
 
             self.ground = self.legs[0].global_joint_poses()[-1].point.y
             for leg in self.legs:
@@ -294,7 +298,7 @@ class Animat:
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
         # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
-        vertical_reach = 0.4
+        vertical_reach = 0.2
         hor_reach = job_dict["reach multiplier"]
         foot_order = job_dict["foot order"]
 
