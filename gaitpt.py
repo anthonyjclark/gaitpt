@@ -1,5 +1,6 @@
 # %%
 from __future__ import annotations
+from audioop import mul
 from dataclasses import dataclass
 from itertools import accumulate
 from loguru import logger
@@ -543,10 +544,97 @@ class Leg:
 
         for _ in range(max_steps):
 
+            if self.get_lowest_pt() <= self.ground:
+
+                delta = abs(self.get_lowest_pt() - self.ground)
+                rem_delta = delta
+
+                base_rotation = -0.1
+
+                # TODO: better data structure for this, and no global var
+                mult = 1
+                if curr_job == "trot":
+                    mult = 1.3
+                elif curr_job == "canter":
+                    mult = 2
+                rotation = base_rotation * mult
+
+                for i in range(1, self.num_segments):
+
+                    parent_angle = 0 if i == 0 else self.angles[i - 1]
+
+                    lo_limit = self.limits[i][0] + parent_angle
+                    hi_limit = self.limits[i][1] + parent_angle
+
+                    joint_poses = self.global_joint_poses()
+
+                    new_angle = rad(joint_poses[i].angle + rotation)
+
+                    # Compute the new angle and clip within specified limits
+                    self.angles[i] = clip(new_angle, lo_limit, hi_limit)
+
+                    rotation *= -1
+
+                    # TODO: this might be a better method with less jumpiness, but can't figure it out
+                    # if delta <= 0:
+                    #     break
+                    # parent_angle = 0 if i == 0 else self.angles[i - 1]
+
+                    # lo_limit = self.limits[i][0] + parent_angle
+                    # hi_limit = self.limits[i][1] + parent_angle
+
+                    # joint_poses = self.global_joint_poses()
+
+                    # limit = lo_limit if i % 2 == 0 else hi_limit
+
+                    # actual_pt = joint_poses[i].point
+                    # prev_pt = joint_poses[i - 1].point
+                    # potential_pt = calc_distance(
+                    #     joint_poses[i - 1].point, self.lengths[i], limit
+                    # )
+                    # diff = abs(actual_pt.y - potential_pt.y)
+
+                    # if diff > delta:
+                    #     # figure out the exact value using pythagoras
+                    #     ht = self.lengths[i] - delta
+                    #     hyp = self.lengths[i]
+                    #     base = math.sqrt(hyp ** 2 - ht ** 2)
+
+                    #     goal = Point(actual_pt.x + base, actual_pt.y - hyp)
+
+                    #     joint_to_tip = joint_poses[-1].point - joint_poses[i].point
+                    #     joint_to_goal = goal - joint_poses[i].point
+
+                    #     rotation_amount = Point.angle_between(
+                    #         joint_to_tip, joint_to_goal
+                    #     )
+
+                    #     new_angle = rad(joint_poses[i].angle + rotation_amount)
+                    #     self.angles[i] = clip(new_angle, lo_limit, hi_limit)
+                    #     pass
+                    # else:
+                    #     # put it all the way and then figure out what to do w the rest
+                    #     # self.angles[i] = clip(parent_angle + limit, lo_limit, hi_limit)
+                    #     pass
+
+                    # delta -= diff
+
+                # if i == 1:
+                #     rotation_amount -= 0.1  # try to correct by lifting up leg a bit
+                # elif i == 2:
+                #     rotation_amount += 0.1
+                # elif i == 3:
+                #     rotation_amount -= 0.2
+
             # len(joint_poses) == 4 (three segments + tip)
             # joint_poses[0] is the base
             # joint_poses[-1] is the tip (no angle associated with tip)
             for i in range(self.num_segments - 1, -1, -1):
+
+                parent_angle = 0 if i == 0 else self.angles[i - 1]
+
+                lo_limit = self.limits[i][0] + parent_angle
+                hi_limit = self.limits[i][1] + parent_angle
 
                 joint_poses = self.global_joint_poses()
 
@@ -554,22 +642,6 @@ class Leg:
                 joint_to_goal = goal - joint_poses[i].point
 
                 rotation_amount = Point.angle_between(joint_to_tip, joint_to_goal)
-
-                parent_angle = 0 if i == 0 else self.angles[i - 1]
-
-                lo_limit = self.limits[i][0] + parent_angle
-                hi_limit = self.limits[i][1] + parent_angle
-
-                if self.get_lowest_pt() <= self.ground:
-                    # ic("\n\n\n HERE \n\n\n")
-                    # ic(self.angles[i])
-                    # ic(rotation_amount)
-                    if i == 1:
-                        rotation_amount -= 0.1  # try to correct by lifting up leg a bit
-                    elif i == 2:
-                        rotation_amount += 0.1
-                    elif i == 3:
-                        rotation_amount -= 0.2
 
                 new_angle = rad(joint_poses[i].angle + rotation_amount)
 
@@ -602,6 +674,13 @@ class Leg:
         return min
 
 
+def calc_distance(start_pt, len, angle) -> Point:
+    x = start_pt.x + len * cos(angle)
+    y = start_pt.y + len * sin(angle)
+
+    return Point(x, y)
+
+
 def save_data(data: List[List[List[Pose]]], filename: str):
     # writes data to file
     with open(filename, "w", newline="") as f:
@@ -622,12 +701,14 @@ def save_data(data: List[List[List[Pose]]], filename: str):
 
 # test creation from json file
 animat2 = Animat(file="sample_json.json")
+curr_job = None
 
 with open("sample_json.json", "r") as f:
     f = json.load(f)
     jobs = f["jobs"]
 
     for job in jobs:
+        curr_job = job["name"]
         animat2.do_job(job)
 
 # animation2 = animat2.walk()
