@@ -555,44 +555,23 @@ class Leg:
 
                 rotation_amount = Point.angle_between(joint_to_tip, joint_to_goal)
 
-                # if i == self.num_segments - 1 and self.ground:
-                if (
-                    goal.x < self.hip.x and self.tip_position().x > goal.x
-                ):  # testing if all segments should do this
-                    # use pythagoras to figure out the max angle before dipping below ground
-                    ankle = self.get_ankle()
-                    foot = self.tip_position()
-
-                    ht = ankle.y - self.ground
-                    hypot = self.lengths[-1]
-                    base = sqrt(ht ** 2 + hypot ** 2)
-
-                    # first point that leg would reach by rotating ankle angle
-                    ground_pos = Point(ankle.x + base, self.ground)
-
-                    angle_to_grd = Point.angle_between(joint_to_tip, ground_pos)
-
-                    # compare to previous rotation amount
-                    if abs(rotation_amount) > abs(angle_to_grd):
-                        rotation_amount = angle_to_grd
-
-                if self.tip_position().y < self.ground and i in [1, 2, 3]:
-                    # ic("\n\n\n HERE \n\n\n")
-                    # ic(self.angles[i])
-                    # ic(rotation_amount)
-                    if i == 1:
-                        rotation_amount -= 0.2  # try to correct by lifting up leg a bit
-                    elif i == 2:
-                        rotation_amount += 0.2
-                    elif i == 3:
-                        rotation_amount -= 0.2
-
-                new_angle = rad(joint_poses[i].angle + rotation_amount)
-
                 parent_angle = 0 if i == 0 else self.angles[i - 1]
 
                 lo_limit = self.limits[i][0] + parent_angle
                 hi_limit = self.limits[i][1] + parent_angle
+
+                if self.get_lowest_pt() <= self.ground:
+                    # ic("\n\n\n HERE \n\n\n")
+                    # ic(self.angles[i])
+                    # ic(rotation_amount)
+                    if i == 1:
+                        rotation_amount -= 0.1  # try to correct by lifting up leg a bit
+                    elif i == 2:
+                        rotation_amount += 0.1
+                    elif i == 3:
+                        rotation_amount -= 0.2
+
+                new_angle = rad(joint_poses[i].angle + rotation_amount)
 
                 # Compute the new angle and clip within specified limits
                 self.angles[i] = clip(new_angle, lo_limit, hi_limit)
@@ -611,6 +590,16 @@ class Leg:
     def raise_hip(self):
         # just raises the hip a tiny bit so that we can see all 4 legs in animation
         self.hip = Point(self.hip.x, self.hip.y + 0.1)
+
+    def get_lowest_pt(self) -> float:
+        pts = self.global_joint_poses()
+        min = pts[0].point.y
+
+        for pt in pts:
+            if pt.point.y < min:
+                min = pt.point.y
+
+        return min
 
 
 def save_data(data: List[List[List[Pose]]], filename: str):
