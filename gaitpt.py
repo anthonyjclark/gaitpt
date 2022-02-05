@@ -298,7 +298,7 @@ class Animat:
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
         # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
-        vertical_reach = 0.2
+        vertical_reach = 0.4
         hor_reach = job_dict["reach multiplier"]
         foot_order = job_dict["foot order"]
 
@@ -320,9 +320,10 @@ class Animat:
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
         x_delts = [
-            (reach / num_steps) * job_dict["reach multiplier"]
+            (reach * job_dict["reach multiplier"] / num_steps)
             for reach in horiz_reaches
         ]
+        y_delts = [delt for delt in x_delts]
 
         # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
         stages = [0] * len(self.legs)
@@ -355,7 +356,7 @@ class Animat:
                     # needs to step forward all the way
                     for step in range(num_steps):
                         xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 2 else -delta_y
+                        ys[i] += y_delts[i] if step < num_steps // 2 else -y_delts[i]
                         if step > num_steps // 2 and ys[i] < self.ground:
                             positions[i].append(Point(x=xs[i], y=self.ground))
                         else:
@@ -372,7 +373,7 @@ class Animat:
                     # reposition
                     for step in range(num_steps // 2):
                         xs[i] += x_delts[i]
-                        ys[i] += delta_y if step < num_steps // 4 else -delta_y
+                        ys[i] += y_delts[i] if step < num_steps // 4 else -y_delts[i]
                         if ys[i] < self.ground:  # clip it so it doesn't go below
                             ys[i] = self.ground
                         positions[i].append(Point(x=xs[i], y=ys[i]))
