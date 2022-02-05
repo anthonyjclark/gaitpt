@@ -554,8 +554,10 @@ class Leg:
 
                 rotation_amount = Point.angle_between(joint_to_tip, joint_to_goal)
 
-                if i == self.num_segments - 1 and self.ground:
-                    ic("last segment")
+                # if i == self.num_segments - 1 and self.ground:
+                if (
+                    goal.x < self.hip.x and self.tip_position().x > goal.x
+                ):  # testing if all segments should do this
                     # use pythagoras to figure out the max angle before dipping below ground
                     ankle = self.get_ankle()
                     foot = self.tip_position()
@@ -573,6 +575,12 @@ class Leg:
                     if abs(rotation_amount) > abs(angle_to_grd):
                         ic("clipped to ground")
                         rotation_amount = angle_to_grd
+
+                if self.tip_position().y < self.ground and i == 1:
+                    ic("\n\n\n HERE \n\n\n")
+                    ic(self.angles[i])
+                    ic(rotation_amount)
+                    rotation_amount -= 0.1 # try to correct by lifting up leg a bit
 
                 new_angle = rad(joint_poses[i].angle + rotation_amount)
 
