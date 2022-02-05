@@ -101,6 +101,7 @@ class Animat:
                 hip = front_hip if leg_dict["hip"] == 0 else back_hip
 
                 self.legs.append(Leg(angles, limits, lengths, hip))
+                # self.legs.reverse()
 
             # no longer necessary bc of different marker usage for l/r sides
             # self.legs[1].raise_hip()
@@ -174,7 +175,7 @@ class Animat:
         def update(frame, *fargs) -> Iterable:
             # one frame would have one list of legs, each with an x,y list tuple
 
-            for i, actor in enumerate(lines):
+            for i, actor in enumerate(reversed(lines)):
                 actor.set_data(
                     frame[i][0], frame[i][1]
                 )  # accessing the info in the tuples
@@ -573,14 +574,18 @@ class Leg:
 
                     # compare to previous rotation amount
                     if abs(rotation_amount) > abs(angle_to_grd):
-                        ic("clipped to ground")
                         rotation_amount = angle_to_grd
 
-                if self.tip_position().y < self.ground and i == 1:
-                    ic("\n\n\n HERE \n\n\n")
-                    ic(self.angles[i])
-                    ic(rotation_amount)
-                    rotation_amount -= 0.1 # try to correct by lifting up leg a bit
+                if self.tip_position().y < self.ground and i in [1, 2, 3]:
+                    # ic("\n\n\n HERE \n\n\n")
+                    # ic(self.angles[i])
+                    # ic(rotation_amount)
+                    if i == 1:
+                        rotation_amount -= 0.2  # try to correct by lifting up leg a bit
+                    elif i == 2:
+                        rotation_amount += 0.2
+                    elif i == 3:
+                        rotation_amount -= 0.2
 
                 new_angle = rad(joint_poses[i].angle + rotation_amount)
 
