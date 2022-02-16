@@ -393,14 +393,16 @@ class Animat:
             ]
         ]  # each frame contains info for one step of all 4 legs
 
-        save_frames = [
+        save_frames = [["Front Left", "Front Right", "Back Left", "Back Right"]]
+
+        save_frames.append(
             [
                 self.legs[0].global_joint_poses()[1],
                 self.legs[1].global_joint_poses()[1],
                 self.legs[2].global_joint_poses()[1],
                 self.legs[3].global_joint_poses()[1],
             ]
-        ]
+        )
 
         # Compute joint angles for each point along the path
         # weird structure bc we want them separated by frames and not by leg
