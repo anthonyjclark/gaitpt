@@ -1,5 +1,6 @@
 # %%
 from __future__ import annotations
+from asyncore import write
 from audioop import mul
 from dataclasses import dataclass
 from itertools import accumulate
@@ -394,14 +395,26 @@ class Animat:
         ]  # each frame contains info for one step of all 4 legs
 
         save_frames = [["Front Left", "Front Right", "Back Left", "Back Right"]]
+        save_frames_angles = []
 
-        save_frames.append(
-            [
-                self.legs[0].global_joint_poses()[1],
-                self.legs[1].global_joint_poses()[1],
-                self.legs[2].global_joint_poses()[1],
-                self.legs[3].global_joint_poses()[1],
-            ]
+        # save_frames.append(
+        #     [
+        #         self.legs[0].global_joint_poses()[1],
+        #         self.legs[1].global_joint_poses()[1],
+        #         self.legs[2].global_joint_poses()[1],
+        #         self.legs[3].global_joint_poses()[1],
+        #     ]
+        # )
+
+        save_frames_angles.append(
+            np.array(
+                [
+                    np.array(self.legs[0].get_angles()),
+                    np.array(self.legs[1].get_angles()),
+                    np.array(self.legs[2].get_angles()),
+                    np.array(self.legs[3].get_angles()),
+                ]
+            )
         )
 
         # Compute joint angles for each point along the path
@@ -426,16 +439,21 @@ class Animat:
 
             # save results
             # if we're not animating, we need the full poses
-            frame = []
+            # frame = []
+            angle_frame = []
+
             for leg in self.legs:
-                frame.append(leg.global_joint_poses()[1])
-            save_frames.append(frame)
+                # frame.append(leg.global_joint_poses()[1])
+                angle_frame.append(leg.get_angles())
+            # save_frames.append(frame)
+            save_frames_angles.append(np.array(angle_frame))
 
         animation = self._animate(anim_frames)
         HTML(animation.to_jshtml())
         animation.save(f'{job_dict["name"]}.gif')
 
-        save_data(save_frames, f'{job_dict["name"]}.csv')
+        # save_data(save_frames, f'{job_dict["name"]}.csv')
+        save_data(save_frames_angles, f'{job_dict["name"]}_angles.csv')
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
@@ -532,6 +550,15 @@ class Leg:
         """
 
         return self.global_joint_poses()[-2].point
+
+    def get_angles(self) -> List[float]:
+        poses = self.global_joint_poses()
+        angles = []
+        for i, pose in enumerate(poses):
+            if i + 1 >= len(poses):
+                continue
+            angles.append(pose.angle)
+        return angles
 
     def move_tip(
         self, goal: Point, max_steps: int = 100, tolerance: float = 1e-1
@@ -690,13 +717,41 @@ def calc_distance(start_pt, len, angle) -> Point:
 
 def save_data(data: List[List[List[Pose]]], filename: str):
     # writes data to file
-    with open(filename, "w", newline="") as f:
-        writer = csv.writer(f)
 
-        for frame in data:
-            # each frame is a row
-            arr = np.array(frame)
-            writer.writerow(arr)
+    with open(filename, "w", newline="") as f:
+        writer = csv.writer(
+            f,
+            quoting=csv.QUOTE_NONE,
+        )
+
+        data = np.asarray(data)
+        ic(data.shape)
+        data = data.flatten()
+
+        one_row = []
+        for num in data:
+            if len(one_row) < 12:  # 4 legs, 3 angles each
+                one_row.append(num)
+            else:
+                writer.writerow(one_row)
+                one_row = []
+
+    with open("./walk_angles.csv", newline="") as file:
+
+        reader = csv.reader(file, quoting=csv.QUOTE_NONE, delimiter=" ", escapechar=",")
+
+        # storing all the rows in an output list
+        output = []
+        for row in reader:
+            output.append(row[:])
+
+    for rows in output:
+        print(rows)
+
+        # for frame in data:
+        #     # each frame is a row
+        #     arr = np.array(frame)
+        #     writer.writerow(arr)
 
 
 # animat = Animat()
