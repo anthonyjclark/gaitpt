@@ -33,6 +33,15 @@ def rad(rad: float) -> float:
     return rad if rad < pi else rad - 2 * pi
 
 
+def interweave_lists(l1, l2):
+    out = []
+
+    for v1, v2 in zip(l1, l2):
+        out.append(v1)
+        out.append(v2)
+    return out
+
+
 @dataclass
 class Point:
     x: float = 0.0
@@ -85,19 +94,13 @@ class Animat:
             front_hip = Point(data["hips"][0], data["height"])
 
             self.legs = []
-            ic(self.legs)
-            ic(data["legs"])
-            ic(len(data["legs"]))
 
             for leg_dict in data["legs"]:
-                ic("entered for")
 
                 angles = []
                 for angle in leg_dict["angles"]:
                     # gotta convert all of these to degrees
                     angles.append(deg(angle))
-
-                ic(self.legs)
 
                 limits = []
                 for limit in leg_dict["limits"]:
@@ -105,8 +108,6 @@ class Animat:
                     limits.append((deg(limit[0]), deg(limit[1])))
 
                 lengths = leg_dict["lengths"]
-
-                ic(self.legs)
 
                 hip = front_hip if leg_dict["hip"] == 0 else back_hip
 
@@ -190,111 +191,6 @@ class Animat:
 
         animation = FuncAnimation(fig, update, frames=frames, init_func=init)
         return animation
-
-    def walk(self, animate=True) -> list[list[list[Pose]]] | FuncAnimation:
-        """Compute joint angles for a walking gait.
-
-        Args:
-            animate (bool, optional): return an animation. Defaults to True.
-
-        Returns:
-            list[list[Pose]] | FuncAnimation: pose data or animation
-        """
-
-        # TODO: vertical reach should go by length of leg
-        horiz_reach = 0.6
-        vertical_reach = 0.4
-
-        # Initial position given by current leg positions
-        positions = [
-            [leg.tip_position()] for leg in self.legs
-        ]  # should be a list[list[pts]]
-
-        stay_positions = positions  # since they only have a "stay still" goal at first
-
-        # Forward motion path
-        num_steps = 16
-
-        xs = [pos[0].x for pos in positions]
-        ys = [pos[0].y for pos in positions]
-
-        # prev version
-        # delta_x = horiz_reach / num_steps
-        delta_y = 2 * vertical_reach / num_steps
-
-        # first do reach
-        horiz_reaches = [leg.max_reach for leg in self.legs]
-        x_delts = [
-            (reach / num_steps) * 0.6 for reach in horiz_reaches
-        ]  # full for sprint,
-
-        assert len(xs) == len(ys), "Different x and y lengths for legs"
-
-        for step in range(num_steps):
-
-            for i in range(
-                len(self.legs)
-            ):  # assuming same lengths, we can do it all here
-                # xs[i] += delta_x
-                xs[i] += x_delts[i]
-                ys[i] += delta_y if step < num_steps // 2 else -delta_y
-                positions[i].append(Point(x=xs[i], y=ys[i]))
-
-        # Backward motion path
-        for _ in range(int(num_steps * 1.5)):
-            for i in range(len(self.legs)):
-                # xs[i] -= delta_x
-                xs[i] -= x_delts[i]
-                positions[i].append(Point(x=xs[i], y=ys[i]))
-
-        # Path back to initial position
-        for step in range(num_steps // 2):
-
-            for i in range(len(self.legs)):
-                # xs[i] += delta_x
-                xs[i] += x_delts[i]
-                ys[i] += delta_y if step < num_steps // 4 else -delta_y
-                positions[i].append(Point(x=xs[i], y=ys[i]))
-
-        initial_pts = self.get_pts_from_gjp()
-
-        # for each leg, we're going to run gjp on it, strip only the points out, and then separate the points into tuples of x,y
-        frames = [
-            [
-                self.split_pts(initial_pts[0]),
-                self.split_pts(initial_pts[1]),
-                self.split_pts(initial_pts[2]),
-                self.split_pts(initial_pts[3]),
-            ]
-        ]  # each frame contains info for one step of all 4 legs
-
-        # Compute joint angles for each point along the path
-        # weird structure bc we want them separated by frames and not by leg
-        # again, assuming all lens same
-        for goal_idx in range(len(positions[0])):
-
-            for leg_idx, leg in enumerate(self.legs):
-                leg.move_tip(positions[leg_idx][goal_idx])
-
-            if animate:
-                all_pts = self.get_pts_from_gjp()
-
-                frames.append(
-                    [
-                        self.split_pts(all_pts[0]),
-                        self.split_pts(all_pts[1]),
-                        self.split_pts(all_pts[2]),
-                        self.split_pts(all_pts[3]),
-                    ]
-                )
-            else:
-                # if we're not animating, we need the full poses
-                frame = []
-                for leg in self.legs:
-                    frame.append(leg.global_joint_poses())
-                frames.append(frame)
-
-        return self._animate(frames) if animate else frames
 
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
@@ -397,25 +293,33 @@ class Animat:
         save_frames = [["Front Left", "Front Right", "Back Left", "Back Right"]]
         save_frames_angles = []
 
-        # save_frames.append(
-        #     [
-        #         self.legs[0].global_joint_poses()[1],
-        #         self.legs[1].global_joint_poses()[1],
-        #         self.legs[2].global_joint_poses()[1],
-        #         self.legs[3].global_joint_poses()[1],
-        #     ]
-        # )
+        torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
 
-        save_frames_angles.append(
-            np.array(
-                [
-                    np.array(self.legs[0].get_angles()),
-                    np.array(self.legs[1].get_angles()),
-                    np.array(self.legs[2].get_angles()),
-                    np.array(self.legs[3].get_angles()),
-                ]
-            )
-        )
+        touch_sensors = [
+            1.0 if (leg.get_lowest_pt() <= self.ground) else 0.0 for leg in self.legs
+        ]
+
+        # TODO: get this section into a fx, since it gets re-used /*
+        angle_frame = []
+        touch_sensors = []
+
+        for leg in self.legs:
+            # frame.append(leg.global_joint_poses()[1])
+            angles = leg.get_angles()
+            angles = np.array(interweave_lists(angles, np.zeros(len(angles)))).flatten()
+            angle_frame = np.append(angle_frame, angles)
+
+            if leg.get_lowest_pt() <= self.ground:
+                touch_sensors.append(1.0)
+            else:
+                touch_sensors.append(0.0)
+
+        angle_frame = np.append(angle_frame, torso)
+        angle_frame = np.append(angle_frame, touch_sensors)
+
+        # save_frames.append(frame)
+        save_frames_angles.append(angle_frame)
+        # */
 
         # Compute joint angles for each point along the path
         # weird structure bc we want them separated by frames and not by leg
@@ -441,12 +345,27 @@ class Animat:
             # if we're not animating, we need the full poses
             # frame = []
             angle_frame = []
+            touch_sensors = []
+            torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
 
             for leg in self.legs:
                 # frame.append(leg.global_joint_poses()[1])
-                angle_frame.append(leg.get_angles())
+                angles = leg.get_angles()
+                angles = np.array(
+                    interweave_lists(angles, np.zeros(len(angles)))
+                ).flatten()
+                angle_frame = np.append(angle_frame, angles)
+
+                if leg.get_lowest_pt() <= self.ground:
+                    touch_sensors.append(1.0)
+                else:
+                    touch_sensors.append(0.0)
+
+            angle_frame = np.append(angle_frame, torso)
+            angle_frame = np.append(angle_frame, touch_sensors)
+
             # save_frames.append(frame)
-            save_frames_angles.append(np.array(angle_frame))
+            save_frames_angles = np.append(save_frames_angles, angle_frame)
 
         animation = self._animate(anim_frames)
         HTML(animation.to_jshtml())
@@ -609,59 +528,6 @@ class Leg:
 
                     rotation *= -1
 
-                    # TODO: this might be a better method with less jumpiness, but can't figure it out
-                    # if delta <= 0:
-                    #     break
-                    # parent_angle = 0 if i == 0 else self.angles[i - 1]
-
-                    # lo_limit = self.limits[i][0] + parent_angle
-                    # hi_limit = self.limits[i][1] + parent_angle
-
-                    # joint_poses = self.global_joint_poses()
-
-                    # limit = lo_limit if i % 2 == 0 else hi_limit
-
-                    # actual_pt = joint_poses[i].point
-                    # prev_pt = joint_poses[i - 1].point
-                    # potential_pt = calc_distance(
-                    #     joint_poses[i - 1].point, self.lengths[i], limit
-                    # )
-                    # diff = abs(actual_pt.y - potential_pt.y)
-
-                    # if diff > delta:
-                    #     # figure out the exact value using pythagoras
-                    #     ht = self.lengths[i] - delta
-                    #     hyp = self.lengths[i]
-                    #     base = math.sqrt(hyp ** 2 - ht ** 2)
-
-                    #     goal = Point(actual_pt.x + base, actual_pt.y - hyp)
-
-                    #     joint_to_tip = joint_poses[-1].point - joint_poses[i].point
-                    #     joint_to_goal = goal - joint_poses[i].point
-
-                    #     rotation_amount = Point.angle_between(
-                    #         joint_to_tip, joint_to_goal
-                    #     )
-
-                    #     new_angle = rad(joint_poses[i].angle + rotation_amount)
-                    #     self.angles[i] = clip(new_angle, lo_limit, hi_limit)
-                    #     pass
-                    # else:
-                    #     # put it all the way and then figure out what to do w the rest
-                    #     # self.angles[i] = clip(parent_angle + limit, lo_limit, hi_limit)
-                    #     pass
-
-                    # delta -= diff
-
-                # if i == 1:
-                #     rotation_amount -= 0.1  # try to correct by lifting up leg a bit
-                # elif i == 2:
-                #     rotation_amount += 0.1
-                # elif i == 3:
-                #     rotation_amount -= 0.2
-
-            # len(joint_poses) == 4 (three segments + tip)
-            # joint_poses[0] is the base
             # joint_poses[-1] is the tip (no angle associated with tip)
             for i in range(self.num_segments - 1, -1, -1):
 
@@ -725,33 +591,32 @@ def save_data(data: List[List[List[Pose]]], filename: str):
         )
 
         data = np.asarray(data)
-        ic(data.shape)
         data = data.flatten()
 
         one_row = []
         for num in data:
-            if len(one_row) < 12:  # 4 legs, 3 angles each
+            if len(one_row) < 32:
                 one_row.append(num)
             else:
                 writer.writerow(one_row)
-                one_row = []
+                one_row = [num]
 
-    with open("./walk_angles.csv", newline="") as file:
+    # with open("./walk_angles.csv", newline="") as file:
 
-        reader = csv.reader(file, quoting=csv.QUOTE_NONE, delimiter=" ", escapechar=",")
+    #     reader = csv.reader(file, quoting=csv.QUOTE_NONE, delimiter=" ", escapechar=",")
 
-        # storing all the rows in an output list
-        output = []
-        for row in reader:
-            output.append(row[:])
+    #     # storing all the rows in an output list
+    #     output = []
+    #     for row in reader:
+    #         output.append(row[:])
 
-    for rows in output:
-        print(rows)
+    # for rows in output:
+    #     print(rows)
 
-        # for frame in data:
-        #     # each frame is a row
-        #     arr = np.array(frame)
-        #     writer.writerow(arr)
+    # for frame in data:
+    #     # each frame is a row
+    #     arr = np.array(frame)
+    #     writer.writerow(arr)
 
 
 # animat = Animat()
