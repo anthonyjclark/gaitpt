@@ -1,22 +1,20 @@
 # %%
 from __future__ import annotations
-from asyncore import write
-from audioop import mul
-from dataclasses import dataclass
-from itertools import accumulate
-from loguru import logger
-from math import atan2, cos, inf, pi, sin, sqrt, radians, degrees
-from typing import Iterable, List, Tuple
-import numpy as np
+
 import csv
 import json
-from icecream import ic
 import math
-
+from dataclasses import dataclass
+from itertools import accumulate
+from math import atan2, cos, degrees, inf, pi, radians, sin, sqrt
+from typing import Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+import numpy as np
+from icecream import ic
 from IPython.display import HTML
+from loguru import logger
+from matplotlib.animation import FuncAnimation
 from numpy.lib.function_base import angle
 
 
@@ -49,7 +47,7 @@ class Point:
 
     @property
     def norm(self) -> float:
-        return sqrt(self.x ** 2 + self.y ** 2)
+        return sqrt(self.x**2 + self.y**2)
 
     def __add__(self, rhs) -> Point:
         return Point(x=self.x + rhs.x, y=self.y + rhs.y)
