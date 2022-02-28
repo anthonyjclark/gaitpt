@@ -2,7 +2,7 @@
 
 Pre-training gaits for genetic algorithms
 
-![](example.gif)
+![](example.gifj)
 
 # Initial Notes
 
