@@ -369,10 +369,10 @@ class Animat:
 
         animation = self._animate(anim_frames)
         HTML(animation.to_jshtml())
-        animation.save(f'{job_dict["name"]}.gif')
+        animation.save(f'./animation_gifs/{job_dict["name"]}.gif')
 
         # save_data(save_frames, f'{job_dict["name"]}.csv')
-        save_data(save_frames_angles, f'{job_dict["name"]}_angles.csv')
+        save_data(save_frames_angles, f'./angle_files/{job_dict["name"]}_angles.csv')
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
@@ -601,30 +601,6 @@ def save_data(data: List[List[List[Pose]]], filename: str):
                 writer.writerow(one_row)
                 one_row = [num]
 
-    # with open("./walk_angles.csv", newline="") as file:
-
-    #     reader = csv.reader(file, quoting=csv.QUOTE_NONE, delimiter=" ", escapechar=",")
-
-    #     # storing all the rows in an output list
-    #     output = []
-    #     for row in reader:
-    #         output.append(row[:])
-
-    # for rows in output:
-    #     print(rows)
-
-    # for frame in data:
-    #     # each frame is a row
-    #     arr = np.array(frame)
-    #     writer.writerow(arr)
-
-
-# animat = Animat()
-# animation = animat.walk()
-# training_data = animat.walk(animate=False)
-# save_data(training_data, "walk_example.csv")
-# HTML(animation.to_jshtml())
-# animation.save("example.gif")
 
 # test creation from json file
 animat2 = Animat(file="sample_json.json")
@@ -638,10 +614,5 @@ with open("sample_json.json", "r") as f:
         curr_job = job["name"]
         animat2.do_job(job)
 
-# animation2 = animat2.walk()
-# training_data = animat2.walk(animate=False)
-# save_data(training_data, "walk_example.csv")
-# HTML(animation2.to_jshtml())
-# animation2.save("example2.gif")
 
 # %%
