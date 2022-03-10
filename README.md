@@ -2,7 +2,11 @@
 
 Pre-training gaits for genetic algorithms
 
-![](example.gif)
+![](example.gifj)
+
+# Process
+
+TODO(Kevin): how do we train a NN for walking (for example)?
 
 # Initial Notes
 
