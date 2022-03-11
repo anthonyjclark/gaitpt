@@ -17,6 +17,11 @@ from loguru import logger
 from matplotlib.animation import FuncAnimation
 from numpy.lib.function_base import angle
 
+from pathlib import Path
+
+ANIMATIONS_PATH = Path("Animations/")
+DATA_PATH = Path("Data/")
+
 
 def clip(val: float, lo: float, hi: float) -> float:
     return max(min(val, hi), lo)
@@ -47,7 +52,7 @@ class Point:
 
     @property
     def norm(self) -> float:
-        return sqrt(self.x**2 + self.y**2)
+        return sqrt(self.x ** 2 + self.y ** 2)
 
     def __add__(self, rhs) -> Point:
         return Point(x=self.x + rhs.x, y=self.y + rhs.y)
@@ -354,7 +359,7 @@ class Animat:
                 ).flatten()
                 angle_frame = np.append(angle_frame, angles)
 
-                if leg.get_lowest_pt() <= self.ground:
+                if leg.get_lowest_pt() <= self.ground + 0.05:
                     touch_sensors.append(1.0)
                 else:
                     touch_sensors.append(0.0)
@@ -367,10 +372,15 @@ class Animat:
 
         animation = self._animate(anim_frames)
         HTML(animation.to_jshtml())
-        animation.save(f'./animation_gifs/{job_dict["name"]}.gif')
+
+        gait_name = job_dict["name"]
+
+        animation.save(ANIMATIONS_PATH / f"{gait_name}.gif")
+        # animation.save(f'./animation_gifs/{job_dict["name"]}.gif')
 
         # save_data(save_frames, f'{job_dict["name"]}.csv')
-        save_data(save_frames_angles, f'./angle_files/{job_dict["name"]}_angles.csv')
+        save_data(save_frames_angles, DATA_PATH / f"{gait_name}_angles.csv")
+        # save_data(save_frames_angles, f'./angle_files/{job_dict["name"]}_angles.csv')
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
