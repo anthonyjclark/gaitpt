@@ -293,8 +293,42 @@ class Animat:
             ]
         ]  # each frame contains info for one step of all 4 legs
 
-        save_frames = [["Front Left", "Front Right", "Back Left", "Back Right"]]
-        save_frames_angles = []
+        save_frames_angles = [
+            [
+                "FL A1 DF 1",
+                "FL A1 DF 2",
+                "FL A2 DF 1",
+                "FL A2 DF 2",
+                "FL A3 DF 1",
+                "FL A3 DF 2",
+                "FR A1 DF 1",
+                "FR A1 DF 2",
+                "FR A2 DF 1",
+                "FR A2 DF 2",
+                "FR A3 DF 1",
+                "FR A3 DF 2",
+                "BL A1 DF 1",
+                "BL A1 DF 2",
+                "BL A2 DF 1",
+                "BL A2 DF 2",
+                "BL A3 DF 1",
+                "BL A3 DF 2",
+                "BR A1 DF 1",
+                "BR A1 DF 2",
+                "BR A2 DF 1",
+                "BR A2 DF 2",
+                "BR A3 DF 1",
+                "BR A3 DF 2",
+                "SP A1 DF 1",
+                "SP A1 DF 2",
+                "SP A2 DF 1",
+                "SP A2 DF 2",
+                "T FL",
+                "T FR",
+                "T BL",
+                "T BR",
+            ]
+        ]
 
         torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
 
@@ -596,6 +630,7 @@ def save_data(data: List[List[List[Pose]]], filename: str):
         writer = csv.writer(
             f,
             quoting=csv.QUOTE_NONE,
+            # escapechar="\\"
         )
 
         data = np.asarray(data)
