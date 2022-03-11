@@ -630,7 +630,6 @@ def save_data(data: List[List[List[Pose]]], filename: str):
         writer = csv.writer(
             f,
             quoting=csv.QUOTE_NONE,
-            # escapechar="\\"
         )
 
         data = np.asarray(data)
