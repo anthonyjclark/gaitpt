@@ -413,7 +413,7 @@ class Animat:
         # animation.save(f'./animation_gifs/{job_dict["name"]}.gif')
 
         # save_data(save_frames, f'{job_dict["name"]}.csv')
-        save_data(save_frames_angles, DATA_PATH / f"{gait_name}_angles.csv")
+        save_data(save_frames_angles, DATA_PATH / f"{gait_name}.csv")
         # save_data(save_frames_angles, f'./angle_files/{job_dict["name"]}_angles.csv')
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
