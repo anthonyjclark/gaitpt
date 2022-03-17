@@ -198,7 +198,7 @@ class Animat:
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
         # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
-        vertical_reach = 0.4
+        vertical_reach = 0.6
         hor_reach = job_dict["reach multiplier"]
         foot_order = job_dict["foot order"]
 
@@ -215,14 +215,9 @@ class Animat:
         xs = [pos[0].x for pos in positions]
         ys = [pos[0].y for pos in positions]
 
-        delta_y = 2 * vertical_reach / num_steps
-
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
-        x_delts = [
-            (reach * job_dict["reach multiplier"] / num_steps)
-            for reach in horiz_reaches
-        ]
+        x_delts = [(reach * hor_reach / num_steps) for reach in horiz_reaches]
         y_delts = [delt for delt in x_delts]
 
         # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
@@ -409,12 +404,9 @@ class Animat:
 
         gait_name = job_dict["name"]
 
-        animation.save(ANIMATIONS_PATH / f"{gait_name}.gif")
-        # animation.save(f'./animation_gifs/{job_dict["name"]}.gif')
+        animation.save(ANIMATIONS_PATH / f"{gait_name}_procedural.gif")
 
-        # save_data(save_frames, f'{job_dict["name"]}.csv')
         save_data(save_frames_angles, DATA_PATH / f"{gait_name}.csv")
-        # save_data(save_frames_angles, f'./angle_files/{job_dict["name"]}_angles.csv')
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
@@ -552,6 +544,8 @@ class Leg:
                     mult = 1.3
                 elif curr_job == "canter":
                     mult = 2
+                elif curr_job == "gallop":
+                    mult = 2
                 rotation = base_rotation * mult
 
                 for i in range(1, self.num_segments):
@@ -654,7 +648,8 @@ with open("sample_json.json", "r") as f:
 
     for job in jobs:
         curr_job = job["name"]
-        animat2.do_job(job)
+        if curr_job == "gallop":
+            animat2.do_job(job)
 
 
 # %%

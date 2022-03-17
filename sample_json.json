@@ -169,6 +169,21 @@
                 ]
             ],
             "savefile": "canter.csv"
+        },
+        {
+            "name": "gallop",
+            "reach multiplier": 0.9,
+            "foot order": [
+                [
+                    0,
+                    3
+                ],
+                [
+                    1,
+                    2
+                ]
+            ],
+            "savefile": "gallop.csv"
         }
     ]
 }
