@@ -198,8 +198,8 @@ class Animat:
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
         # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
-        vertical_reach = 0.6
-        hor_reach = job_dict["reach multiplier"]
+        vertical_reach = job_dict["vertical_reach"]
+        hor_reach = job_dict["horizontal_reach"]
         foot_order = job_dict["foot order"]
 
         # Initial position given by current leg positions
@@ -212,13 +212,19 @@ class Animat:
         # Forward motion path
         num_steps = 16
 
+        delta_y = 2 * vertical_reach / num_steps
+
         xs = [pos[0].x for pos in positions]
         ys = [pos[0].y for pos in positions]
 
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
+        vertical_reaches = [leg.get_hip().y - leg.get_lowest_pt() for leg in self.legs]
         x_delts = [(reach * hor_reach / num_steps) for reach in horiz_reaches]
-        y_delts = [delt for delt in x_delts]
+        # y_delts = [delt * vertical_reach for delt in x_delts]
+        y_delts = [(reach * vertical_reach / num_steps) for reach in vertical_reaches]
+        # y_delts = [vertical_reach] * len(x_delts)
+        # y_delts = [delta_y] * len(x_delts)
 
         # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
         stages = [0] * len(self.legs)
@@ -504,6 +510,9 @@ class Leg:
 
         return self.global_joint_poses()[-2].point
 
+    def get_hip(self) -> Point:
+        return self.global_joint_poses()[0].point
+
     def get_angles(self) -> List[float]:
         poses = self.global_joint_poses()
         angles = []
@@ -648,8 +657,8 @@ with open("sample_json.json", "r") as f:
 
     for job in jobs:
         curr_job = job["name"]
-        if curr_job == "gallop":
-            animat2.do_job(job)
+        # if curr_job == "gallop":
+        animat2.do_job(job)
 
 
 # %%
