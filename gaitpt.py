@@ -648,10 +648,10 @@ def save_data(data: List[List[List[Pose]]], filename: str):
 
 
 # test creation from json file
-animat2 = Animat(file="sample_json.json")
+animat2 = Animat(file="dog_config.json")
 curr_job = None
 
-with open("sample_json.json", "r") as f:
+with open("dog_config.json", "r") as f:
     f = json.load(f)
     jobs = f["jobs"]
 
