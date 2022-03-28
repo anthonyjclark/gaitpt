@@ -328,14 +328,21 @@ class GaitModel(nn.Module):
 
     def forward(self, X):
         tmp = np.zeros(X.shape)
-        tmp[:, 0] = X[:, 0]
+        tmp[:, 0] = X[:, 0] #first
         X2 = X[:, 1:]
         X2 -= self.avgs
 
         tmp[:, 1:] = X2[:, :]
         X = torch.FloatTensor(tmp)
 
-        return self.layers(X)
+        X = self.layers(X)
+
+
+        with torch.no_grad():
+            tmp = np.zeros(X.shape)
+            X += self.avgs[4:]
+
+        return X
 
 
 # %% [markdown]
