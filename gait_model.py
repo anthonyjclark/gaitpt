@@ -166,6 +166,27 @@ def create_datasets(csv_path: str, train_perc: float = 0.8, nosplit=False):
         return AngleDataset(x=x_data, y=y_data)
 
 
+# %%
+# get averages for each csv
+
+def get_avg_range(df_col):
+    return (df_col.min() + df_col.max()) / 2
+
+def get_avgs(fp: str):
+
+    df = pd.read_csv(fp)
+
+    return df.apply(get_avg_range, axis=0).tolist() #0 axis is cols, 1 is rows
+
+avgs = {}
+
+
+for file in DATA_PATH.glob("*_kinematic.csv"):
+    avgs[file.stem.split("_")[0]] = get_avgs(file)
+
+avgs.keys()
+
+
 # %% [markdown]
 # ## Define training methods for the model
 # These methods use an initialized model and training data to iteratively perform the forward and backward pass of optimization. Aside from some data reformatting that depends on the input, output, and loss function, these methods will always be the same for any shallow neural network.
@@ -278,8 +299,9 @@ def plot_loss(losses, title: str, show=True):
 
 # %%
 class GaitModel(nn.Module):
-    def __init__(self, layer_sizes, batch_norm=True, dropout=0):
+    def __init__(self, layer_sizes, avgs_key, batch_norm=True, dropout=0):
         super(GaitModel, self).__init__()
+        self.avgs = torch.FloatTensor(avgs[avgs_key])
         hidden_layers = []
 
         for nl, nlminus1 in zip(layer_sizes[1:-1], layer_sizes):
@@ -305,6 +327,14 @@ class GaitModel(nn.Module):
         self.layers = nn.Sequential(*all_layers)
 
     def forward(self, X):
+        tmp = np.zeros(X.shape)
+        tmp[:, 0] = X[:, 0]
+        X2 = X[:, 1:]
+        X2 -= self.avgs
+
+        tmp[:, 1:] = X2[:, :]
+        X = torch.FloatTensor(tmp)
+
         return self.layers(X)
 
 
@@ -312,7 +342,7 @@ class GaitModel(nn.Module):
 # ## Define Run function
 
 # %%
-def run(train_dataset, test_dataset, epochs=4, layer_sizes=[33, 31, 30, 28], batch_norm=True, dropout=0):
+def run(train_dataset, test_dataset, avgs_key, epochs=4, layer_sizes=[33, 31, 30, 28], batch_norm=True, dropout=0):
     # Batch size is the number of training examples used to calculate each iteration's gradient
     batch_size_train = 33
 
@@ -326,7 +356,7 @@ def run(train_dataset, test_dataset, epochs=4, layer_sizes=[33, 31, 30, 28], bat
     # Define the hyperparameters
     learning_rate = 1e-3
 
-    pytorch_model = GaitModel(layer_sizes, batch_norm, dropout)
+    pytorch_model = GaitModel(layer_sizes, avgs_key, batch_norm, dropout)
 
     # Initialize the optimizer with above parameters
     optimizer = optim.Adam(pytorch_model.parameters(), lr=learning_rate)
@@ -356,18 +386,20 @@ def run(train_dataset, test_dataset, epochs=4, layer_sizes=[33, 31, 30, 28], bat
 angles_path = Path("Data")
 names_and_ds = []
 
-for filename in angles_path.glob("*.csv"):
+for filename in angles_path.glob("*_kinematic.csv"):
 
     gait_name = filename.stem.split("_")[0]
     train_ds, test_ds = create_datasets(filename)
     names_and_ds.append((gait_name, train_ds, test_ds))
+
+print(names_and_ds)
 
 
 # %% [markdown]
 # ## Run and plot results
 
 # %%
-def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot=True, dropout=0, batch_norm=True, extra_id: str = None):
+def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot=True, dropout=0, batch_norm=True, extra_id: str = ""):
 
     final_losses = []
 
@@ -377,7 +409,7 @@ def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot
         train_ds.x_data.shape
 
         losses, y_predict, model_to_save = run(
-            train_dataset=train_ds, test_dataset=test_ds, epochs=400, dropout=dropout, batch_norm=batch_norm
+            train_dataset=train_ds, test_dataset=test_ds, avgs_key=name, epochs=400, dropout=dropout, batch_norm=batch_norm
         )
 
 
@@ -390,7 +422,7 @@ def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot
         )
         y_predict = test(model_to_save, data_loader_all)
 
-        spacer = "_" if extra_id else ""
+        spacer = "_" if extra_id != "" else ""
 
         # / new
         # Save the outputs to a csv for quicker comparisons later
@@ -417,7 +449,7 @@ def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot
 
         
 
-# train_csv_plot(names_and_ds)
+train_csv_plot(names_and_ds)
 
 # %% [markdown]
 # ## Sanity Check Data By Plotting
