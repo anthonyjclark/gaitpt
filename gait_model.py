@@ -29,7 +29,7 @@ from torch.utils.data.dataset import Dataset
 
 # from icecream import ic
 import pandas as pd
-from math import sqrt
+from math import sqrt, inf
 import glob
 import csv
 
@@ -298,10 +298,10 @@ class GaitModel(nn.Module):
         # See: https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
         output_layer = nn.Linear(layer_sizes[-2], layer_sizes[-1])
 
-        tanh = torch.nn.Tanh()
+        # tanh = torch.nn.Tanh()
 
         # Group all layers into the sequential container
-        all_layers = hidden_layers + [output_layer] + [tanh]
+        all_layers = hidden_layers + [output_layer]
         self.layers = nn.Sequential(*all_layers)
 
     def forward(self, X):
@@ -367,9 +367,12 @@ for filename in angles_path.glob("*.csv"):
 # ## Run and plot results
 
 # %%
-def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=MODEL_OUTPUT_PATH, plot=True, dropout=0, batch_norm=True):
+def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot=True, dropout=0, batch_norm=True, extra_id: str = None):
+
+    final_losses = []
 
     for name, train_ds, test_ds in names_and_ds:
+        print(name)
 
         train_ds.x_data.shape
 
@@ -379,7 +382,7 @@ def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=MODEL_OUTPUT_PA
 
 
         # new /
-        all_ds = create_datasets(DATA_PATH / f'{name}.csv', nosplit=True)
+        all_ds = create_datasets(DATA_PATH / f'{name}_kinematic.csv', nosplit=True)
 
 
         data_loader_all = DataLoader(
@@ -387,9 +390,11 @@ def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=MODEL_OUTPUT_PA
         )
         y_predict = test(model_to_save, data_loader_all)
 
+        spacer = "_" if extra_id else ""
+
         # / new
         # Save the outputs to a csv for quicker comparisons later
-        with open(csv_path / f'{name}.csv', "w", newline="") as f:
+        with open(csv_path / f'{name}_model{spacer}{extra_id}.csv', "w", newline="") as f:
             writer = csv.writer(
                 f,
                 quoting=csv.QUOTE_NONE,
@@ -399,24 +404,29 @@ def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=MODEL_OUTPUT_PA
             for row in y_predict:
                 writer.writerow(row)
 
-        torch.save(model_to_save, model_path / f"{name}_model.pt")
+        torch.save(model_to_save, model_path / f"{name}_model{spacer}{extra_id}.pt")
 
-        print(f"Final loss for {name}: {sum(losses[-100:])/100}")
+        final_loss = sum(losses[-100:])/100
+        final_losses.append(final_loss)
+
+        print(f"Final loss for {name}: {final_loss}")
         if plot:
             plot_loss(losses, name)
 
-train_csv_plot(names_and_ds)
+    return sum(final_losses)/len(final_losses)
 
-# %%
-# !head ./Data/trot_angles.csv
+        
+
+# train_csv_plot(names_and_ds)
 
 # %% [markdown]
 # ## Sanity Check Data By Plotting
 # Also saving to files under Sanity_Checks
 
 # %%
-data_files = sorted([x for x in DATA_PATH.glob("*.csv") if x.is_file()])
-model_outputs = sorted([x for x in MODEL_OUTPUT_PATH.glob("*.csv") if x.is_file()])
+
+data_files = sorted([x for x in DATA_PATH.glob("*_kinematic.csv") if x.is_file()])
+model_outputs = sorted([x for x in DATA_PATH.glob("*_model.csv") if x.is_file()])
 
 
 # %%
@@ -439,15 +449,17 @@ for actual, pred in zip(data_files, model_outputs):
 
 
 # %%
-def plot_comparisons(data_files, model_outputs, save_path):
+def plot_comparisons(data_files, model_outputs, save_path, extra_id:str = None):
 
     for actual, pred in zip(data_files, model_outputs):
 
         dfa = pd.read_csv(actual)
         dfp = pd.read_csv(pred)
 
+        name = actual.stem.split("_")[0]
+
         fig, axs = pyplot.subplots(nrows=6, ncols=10, sharey=True, sharex=True, figsize=(16,12))
-        fig.suptitle(f"{actual.stem}: actual (left) vs predicted (right)", fontsize=16)
+        fig.suptitle(f"{name}: actual (left) vs predicted (right)", fontsize=16)
         # fig.set_size_inches(9, 9, forward=True)
         for ax_arr in axs:
             for ax in ax_arr:
@@ -489,18 +501,53 @@ def plot_comparisons(data_files, model_outputs, save_path):
         dfa_p5.plot(ax=axs[:-2,8], subplots=True)
         dfp_p5.plot(ax=axs[:-2,9], subplots=True)
 
+        spacer = "_" if extra_id else ""
         
-    
-        fig.savefig( save_path / f"{actual.stem}_comparison", facecolor="white")
+        fig.savefig( save_path / f"{name}_comparison{spacer}{extra_id}", facecolor="white")
     
         
-plot_comparisons(data_files, model_outputs, SANITY_PATH)
+# plot_comparisons(data_files, model_outputs, SANITY_PATH)
 
 
 # %%
-configs = [("both_off", False, 0), ("only_drop", False, 0.5), ("both", True, 0.5)]
+configs = [("bothoff", False, 0), ("onlydrop", False, 0.5), ("bothon", True, 0.5), ("onlybatch", True, 0)]
 
 tmp_path = Path("TMP/")
 
+names_and_ds = []
+
+for filename in DATA_PATH.glob("*_kinematic.csv"):
+
+    gait_name = filename.stem.split("_")[0]
+    train_ds, test_ds = create_datasets(filename)
+    names_and_ds.append((gait_name, train_ds, test_ds))
+
+min_loss = inf
+best_config = None
+
+for config, batch, drop in configs:
+    
+    # trains all gait types w this config
+    avg_loss = train_csv_plot(names_and_ds, tmp_path, tmp_path, plot=False, dropout=drop, batch_norm=batch, extra_id=config)
+
+    if min_loss > avg_loss:
+        min_loss = avg_loss
+        best_config = config
+
+    # now we've got a set of models trained w these specific configs and a csv for each. need to compare vs regular graphs
+    config_outputs = sorted([x for x in tmp_path.glob(f"*_{config}.csv") if x.is_file()])
+
+    plot_comparisons(data_files, config_outputs, tmp_path, extra_id=config) #plot to tmp folder
+
+    
 
 
+
+
+# %%
+print(best_config)
+
+# %%
+# !jupytext --set-formats ipynb,py:percent gait_model.ipynb
+
+# %%
