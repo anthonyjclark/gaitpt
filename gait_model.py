@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.4
+#       jupytext_version: 1.13.7
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -29,16 +29,63 @@ from torch.utils.data.dataset import Dataset
 
 # from icecream import ic
 import pandas as pd
-from math import sqrt
+from math import sqrt, inf
 import glob
+import csv
 
 from pathlib import Path
 
+
+
 import random
 
-# TODO: more gaits: gallop
 
-# ic("USING pytorch VERSION: ", torch.__version__)
+
+# print("USING pytorch VERSION: ", torch.__version__)
+
+# %% [markdown]
+# ## Define Constants and Hyperparams
+
+# %%
+ANIMATIONS_PATH = Path("Animations/")
+DATA_PATH = Path("Data/")
+SANITY_PATH = Path("Sanity_Checks/")
+MODEL_OUTPUT_PATH = Path("Model_Outputs/")
+MODEL_PATH = Path("Models/")
+CSV_HEADER = [
+                "FL A1 DF 1",
+                "FL A1 DF 2",
+                "FL A2 DF 1",
+                "FL A2 DF 2",
+                "FL A3 DF 1",
+                "FL A3 DF 2",
+                "FR A1 DF 1",
+                "FR A1 DF 2",
+                "FR A2 DF 1",
+                "FR A2 DF 2",
+                "FR A3 DF 1",
+                "FR A3 DF 2",
+                "BL A1 DF 1",
+                "BL A1 DF 2",
+                "BL A2 DF 1",
+                "BL A2 DF 2",
+                "BL A3 DF 1",
+                "BL A3 DF 2",
+                "BR A1 DF 1",
+                "BR A1 DF 2",
+                "BR A2 DF 1",
+                "BR A2 DF 2",
+                "BR A3 DF 1",
+                "BR A3 DF 2",
+                "SP A1 DF 1",
+                "SP A1 DF 2",
+                "SP A2 DF 1",
+                "SP A2 DF 2",
+            ]
+
+epochs = 5
+
+
 
 # %% [markdown]
 # ## Define a pytorch Dataset object to contain the training and testing data
@@ -64,7 +111,7 @@ class AngleDataset(Dataset):
         return self.length
 
 
-def create_datasets(csv_path: str, train_perc: float = 0.8):
+def create_datasets(csv_path: str, train_perc: float = 0.8, nosplit=False):
     df = pd.read_csv(csv_path)
     length = len(df)
     time = 10
@@ -105,14 +152,39 @@ def create_datasets(csv_path: str, train_perc: float = 0.8):
     x_data = np.array(x_data, dtype=np.float64)
     y_data = np.array(y_data, dtype=np.float64)
 
-    last_train_idx = int(len(x_data) * train_perc)
+    if not nosplit:
 
-    train_x = x_data[:last_train_idx]
-    train_y = y_data[:last_train_idx]
-    test_x = x_data[last_train_idx:]
-    test_y = y_data[last_train_idx:]
+        last_train_idx = int(len(x_data) * train_perc)
 
-    return AngleDataset(x=train_x, y=train_y), AngleDataset(x=test_x, y=test_y)
+        train_x = x_data[:last_train_idx]
+        train_y = y_data[:last_train_idx]
+        test_x = x_data[last_train_idx:]
+        test_y = y_data[last_train_idx:]
+
+        return AngleDataset(x=train_x, y=train_y), AngleDataset(x=test_x, y=test_y)
+    else:
+        return AngleDataset(x=x_data, y=y_data)
+
+
+# %%
+# get averages for each csv
+
+def get_avg_range(df_col):
+    return (df_col.min() + df_col.max()) / 2
+
+def get_avgs(fp: str):
+
+    df = pd.read_csv(fp)
+
+    return df.apply(get_avg_range, axis=0).tolist() #0 axis is cols, 1 is rows
+
+avgs = {}
+
+
+for file in DATA_PATH.glob("*_kinematic.csv"):
+    avgs[file.stem.split("_")[0]] = get_avgs(file)
+
+avgs.keys()
 
 
 # %% [markdown]
@@ -139,6 +211,8 @@ def train_batch(model, x, y, optimizer, loss_fn):
     # Calling the step function on an Optimizer makes an update to its
     # parameters
     optimizer.step()
+
+
 
     return loss.data.item()
 
@@ -225,36 +299,57 @@ def plot_loss(losses, title: str, show=True):
 
 # %%
 class GaitModel(nn.Module):
-    def __init__(self, layer_sizes, joint_mids):
+    def __init__(self, layer_sizes, avgs_key, batch_norm=True, dropout=0):
         super(GaitModel, self).__init__()
-        
-        self.joint_mids = joint_mids
+        self.avgs = torch.FloatTensor(avgs[avgs_key])
+        hidden_layers = []
 
-        hidden_layers = [
-            nn.Sequential(nn.Linear(nlminus1, nl), nn.ReLU(), nn.BatchNorm1d(nl))
-            for nl, nlminus1 in zip(layer_sizes[1:-1], layer_sizes)
-        ]
+        for nl, nlminus1 in zip(layer_sizes[1:-1], layer_sizes):
+            layers = [nn.Linear(nlminus1, nl), nn.ReLU()]
+            if batch_norm:
+                layers.append(nn.BatchNorm1d(nl))
+
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+
+
+            hidden_layers.append(nn.Sequential(*layers))
+
 
         # The output layer does not include an activation function.
         # See: https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
         output_layer = nn.Linear(layer_sizes[-2], layer_sizes[-1])
 
-        tanh = torch.nn.Tanh()
+        # tanh = torch.nn.Tanh()
 
         # Group all layers into the sequential container
-        all_layers = hidden_layers + [output_layer] + [tanh]
+        all_layers = hidden_layers + [output_layer]
         self.layers = nn.Sequential(*all_layers)
 
     def forward(self, X):
-        X -= joint_mids
-        return self.layers(X)
+        tmp = np.zeros(X.shape)
+        tmp[:, 0] = X[:, 0] #first
+        X2 = X[:, 1:]
+        X2 -= self.avgs
+
+        tmp[:, 1:] = X2[:, :]
+        X = torch.FloatTensor(tmp)
+
+        X = self.layers(X)
+
+
+        with torch.no_grad():
+            tmp = np.zeros(X.shape)
+            X += self.avgs[4:]
+
+        return X
 
 
 # %% [markdown]
 # ## Define Run function
 
 # %%
-def run(train_dataset, test_dataset, epochs=4, layer_sizes=[33, 31, 30, 28]):
+def run(train_dataset, test_dataset, avgs_key, epochs=4, layer_sizes=[33, 31, 30, 28], batch_norm=True, dropout=0):
     # Batch size is the number of training examples used to calculate each iteration's gradient
     batch_size_train = 33
 
@@ -268,7 +363,7 @@ def run(train_dataset, test_dataset, epochs=4, layer_sizes=[33, 31, 30, 28]):
     # Define the hyperparameters
     learning_rate = 1e-3
 
-    pytorch_model = GaitModel(layer_sizes)
+    pytorch_model = GaitModel(layer_sizes, avgs_key, batch_norm, dropout)
 
     # Initialize the optimizer with above parameters
     optimizer = optim.Adam(pytorch_model.parameters(), lr=learning_rate)
@@ -298,39 +393,200 @@ def run(train_dataset, test_dataset, epochs=4, layer_sizes=[33, 31, 30, 28]):
 angles_path = Path("Data")
 names_and_ds = []
 
-for filename in angles_path.glob("*.csv"):
+for filename in angles_path.glob("*_kinematic.csv"):
 
     gait_name = filename.stem.split("_")[0]
     train_ds, test_ds = create_datasets(filename)
     names_and_ds.append((gait_name, train_ds, test_ds))
 
+print(names_and_ds)
+
+
 # %% [markdown]
 # ## Run and plot results
 
 # %%
-for name, train_ds, test_ds in names_and_ds:
+def train_csv_plot(names_and_ds, model_path=MODEL_PATH, csv_path=DATA_PATH, plot=True, dropout=0, batch_norm=True, extra_id: str = ""):
 
-    train_ds.x_data.shape
+    final_losses = []
 
-    losses, y_predict, model_to_save = run(
-        train_dataset=train_ds, test_dataset=test_ds, epochs=400
-    )
-    torch.save(model_to_save, Path("Models") / f"{name}_model.pt")
+    for name, train_ds, test_ds in names_and_ds:
+        print(name)
 
-    print(f"Final loss for {name}: {sum(losses[-100:])/100}")
-    plot_loss(losses, name)
+        train_ds.x_data.shape
+
+        losses, y_predict, model_to_save = run(
+            train_dataset=train_ds, test_dataset=test_ds, avgs_key=name, epochs=400, dropout=dropout, batch_norm=batch_norm
+        )
+
+
+        # new /
+        all_ds = create_datasets(DATA_PATH / f'{name}_kinematic.csv', nosplit=True)
+
+
+        data_loader_all = DataLoader(
+            dataset=all_ds, batch_size=33, shuffle=False
+        )
+        y_predict = test(model_to_save, data_loader_all)
+
+        spacer = "_" if extra_id != "" else ""
+
+        # / new
+        # Save the outputs to a csv for quicker comparisons later
+        with open(csv_path / f'{name}_model{spacer}{extra_id}.csv', "w", newline="") as f:
+            writer = csv.writer(
+                f,
+                quoting=csv.QUOTE_NONE,
+            )
+
+            writer.writerow(CSV_HEADER)
+            for row in y_predict:
+                writer.writerow(row)
+
+        torch.save(model_to_save, model_path / f"{name}_model{spacer}{extra_id}.pt")
+
+        final_loss = sum(losses[-100:])/100
+        final_losses.append(final_loss)
+
+        print(f"Final loss for {name}: {final_loss}")
+        if plot:
+            plot_loss(losses, name)
+
+    return sum(final_losses)/len(final_losses)
+
+
+
+train_csv_plot(names_and_ds)
+
+# %% [markdown]
+# ## Sanity Check Data By Plotting
+# Also saving to files under Sanity_Checks
 
 # %%
-# !head ./Data/trot_angles.csv
+
+data_files = sorted([x for x in DATA_PATH.glob("*_kinematic.csv") if x.is_file()])
+model_outputs = sorted([x for x in DATA_PATH.glob("*_model.csv") if x.is_file()])
+
 
 # %%
-df_gait = pd.read_csv("./Data/trot_angles.csv", header=None)
-df_gait
+
+for actual, pred in zip(data_files, model_outputs):
+
+    dfa = pd.read_csv(actual)
+    dfp = pd.read_csv(pred)
+
+
+    plot_actual = dfa.plot(subplots=True, layout=(6, 6), figsize=(16, 16), title=f"{actual.stem}: actual")
+    plot_predicted = dfp.plot(subplots=True, layout=(6, 6), figsize=(16, 16), title=f"{pred.stem}: predicted by model")
+
+
+
+    plot_actual[0][0].get_figure().savefig( SANITY_PATH / f'{actual.stem}_actual.png', facecolor='white')
+    plot_predicted[0][0].get_figure().savefig( SANITY_PATH / f'{pred.stem}_predicted.png', facecolor='white')
+
+
+
 
 # %%
-df_gait.describe()
+def plot_comparisons(data_files, model_outputs, save_path, extra_id:str = None):
+
+    for actual, pred in zip(data_files, model_outputs):
+
+        dfa = pd.read_csv(actual)
+        dfp = pd.read_csv(pred)
+
+        name = actual.stem.split("_")[0]
+
+        fig, axs = pyplot.subplots(nrows=6, ncols=10, sharey=True, sharex=True, figsize=(16,12))
+        fig.suptitle(f"{name}: actual (left) vs predicted (right)", fontsize=16)
+        # fig.set_size_inches(9, 9, forward=True)
+        for ax_arr in axs:
+            for ax in ax_arr:
+                # ax.set_aspect('equal')
+                # ax.set_adjustable('box')
+                ax.set_box_aspect(1)
+        pyplot.subplots_adjust(left  = 0.025,
+                right = 1.0,
+                bottom = 0.1,
+                top = 0.9,
+                wspace = 0.5,
+                hspace = 0.5)
+        pyplot.ylim(-3, 3)
+        fig.tight_layout()
+
+
+        dfa = dfa.iloc[:, :-4]
+
+        dfa_p1 = dfa.iloc[:, :6]
+        dfa_p2 = dfa.iloc[:, 6:12]
+        dfa_p3 = dfa.iloc[:, 12:18]
+        dfa_p4 = dfa.iloc[:, 18:24]
+        dfa_p5 = dfa.iloc[:, 24:]
+
+        dfp_p1 = dfp.iloc[:, :6]
+        dfp_p2 = dfp.iloc[:, 6:12]
+        dfp_p3 = dfp.iloc[:, 12:18]
+        dfp_p4 = dfp.iloc[:, 18:24]
+        dfp_p5 = dfp.iloc[:, 24:]
+
+        dfa_p1.plot(ax=axs[:,0], subplots=True)
+        dfp_p1.plot(ax=axs[:,1], subplots=True)
+        dfa_p2.plot(ax=axs[:,2], subplots=True)
+        dfp_p2.plot(ax=axs[:,3], subplots=True)
+        dfa_p3.plot(ax=axs[:,4], subplots=True)
+        dfp_p3.plot(ax=axs[:,5], subplots=True)
+        dfa_p4.plot(ax=axs[:,6], subplots=True)
+        dfp_p4.plot(ax=axs[:,7], subplots=True)
+        dfa_p5.plot(ax=axs[:-2,8], subplots=True)
+        dfp_p5.plot(ax=axs[:-2,9], subplots=True)
+
+        spacer = "_" if extra_id else ""
+
+        fig.savefig( save_path / f"{name}_comparison{spacer}{extra_id}", facecolor="white")
+
+
+# plot_comparisons(data_files, model_outputs, SANITY_PATH)
+
 
 # %%
-df_gait.plot(subplots=True, layout=(6, 6), figsize=(16, 16))
+configs = [("bothoff", False, 0), ("onlydrop", False, 0.5), ("bothon", True, 0.5), ("onlybatch", True, 0)]
+
+tmp_path = Path("TMP/")
+
+names_and_ds = []
+
+for filename in DATA_PATH.glob("*_kinematic.csv"):
+
+    gait_name = filename.stem.split("_")[0]
+    train_ds, test_ds = create_datasets(filename)
+    names_and_ds.append((gait_name, train_ds, test_ds))
+
+min_loss = inf
+best_config = None
+
+for config, batch, drop in configs:
+
+    # trains all gait types w this config
+    avg_loss = train_csv_plot(names_and_ds, tmp_path, tmp_path, plot=False, dropout=drop, batch_norm=batch, extra_id=config)
+
+    if min_loss > avg_loss:
+        min_loss = avg_loss
+        best_config = config
+
+    # now we've got a set of models trained w these specific configs and a csv for each. need to compare vs regular graphs
+    config_outputs = sorted([x for x in tmp_path.glob(f"*_{config}.csv") if x.is_file()])
+
+    plot_comparisons(data_files, config_outputs, tmp_path, extra_id=config) #plot to tmp folder
+
+
+
+
+
+
+# %%
+print(best_config)
+
+# %%
+# !jupytext --set-formats ipynb,py:percent gait_model.ipynb
 
 # %%

@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/usr/local/Caskroom/mambaforge/base/envs/ds/bin/python"
+    "python.pythonPath": "/usr/local/Caskroom/mambaforge/base/envs/ds/bin/python",
+    "python.linting.enabled": true
 }
