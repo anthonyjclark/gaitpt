@@ -105,8 +105,6 @@ def create_datasets(csv_path: str, train_perc: float = 0.8, nosplit=False):
     time = 10
     timestep = 0.005
 
-    # x_data = np.array([])
-    # y_data = np.array([])
     x_data = []
     y_data = []
 
