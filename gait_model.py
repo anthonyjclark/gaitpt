@@ -31,9 +31,6 @@ import torch
 import torch.nn as nn
 
 # %% [markdown]
-# ## Define Constants and Hyperparams
-
-# %% [markdown]
 # ## Define a pytorch Dataset object to contain the training and testing data
 #
 # Pytorch handles data shuffling and batch loading, as long as the user provides a "Dataset" class. This class is just a
@@ -156,7 +153,7 @@ def train_loop(
 
 
 # %% [markdown]
-# ## Define testing methods for the model
+# ## Define inference methods for the model
 #
 # These methods are like training, but we don't need to update the parameters of the model anymore because when we call
 # the test() method, the model has already been trained. Instead, this method just calculates the predicted y values and
@@ -181,18 +178,6 @@ def inference(model: nn.Module, dataset: AngleDataset) -> torch.Tensor:
     loader = DataLoader(dataset, batch_size=len(dataset))
     predictions = [batch_inference(model, x) for x, _ in loader]
     return torch.concat(predictions)
-
-
-# %% [markdown]
-# ## Define plotting method for loss
-# This is a plotting method for looking at the behavior of the loss over training iterations.
-
-# %%
-def plot_losses(losses: list[float], title: str):
-    plt.plot(losses)
-    plt.title(title)
-    plt.xlabel("Batch")
-    plt.ylabel("Loss")
 
 
 # %% [markdown]
@@ -289,7 +274,6 @@ def train(
 
 # %%
 
-ANIMATIONS_DIR = Path("Animations/")
 DATA_DIR = Path("KinematicsData/")
 SANITY_DIR = Path("SanityChecks/")
 MODEL_OUTPUT_DIR = Path("ModelOutputs/")
@@ -308,6 +292,14 @@ for segment_name, num_joints in zip(segment_names, joints_per_segment):
 datasets = {
     f.stem.split("_")[0]: AngleDataset(f) for f in DATA_DIR.glob("*_kinematic.csv")
 }
+
+# %%
+def plot_losses(losses: list[float], title: str):
+    plt.plot(losses)
+    plt.title(title)
+    plt.xlabel("Batch")
+    plt.ylabel("Loss")
+
 
 # %%
 
@@ -349,7 +341,7 @@ for name in datasets:
         for row in predictions:
             writer.writerow(row.tolist())
 
-    # torch.save(model_to_save, model_path / f"{name}_model{spacer}{extra_id}.pt")
+    torch.save(model, MODEL_DIR / f"{name}_model.pt")
 
     # final_loss = sum(losses[-100:]) / 100
     # final_losses.append(final_loss)
@@ -398,16 +390,7 @@ for actual, pred in zip(kinematics, outputs):
         ax.set_title(col)
         ax.legend()
 
-    # fig.savefig(SANITY_DIR / f"{gait_name}_comparison.png", facecolor="white")
-
-    break
-
-    # plot_actual[0][0].get_figure().savefig(
-    #     SANITY_DIR / f"{actual.stem}_actual.png", facecolor="white"
-    # )
-    # plot_predicted[0][0].get_figure().savefig(
-    #     SANITY_DIR / f"{pred.stem}_predicted.png", facecolor="white"
-    # )
+    fig.savefig(SANITY_DIR / f"{gait_name}_comparison.png", facecolor="white")
 
 
 # %%
