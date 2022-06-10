@@ -20,7 +20,7 @@ from numpy.lib.function_base import angle
 from pathlib import Path
 
 ANIMATIONS_PATH = Path("Animations/")
-DATA_PATH = Path("Data/")
+DATA_PATH = Path("KinematicsData/")
 
 
 def clip(val: float, lo: float, hi: float) -> float:
@@ -52,7 +52,7 @@ class Point:
 
     @property
     def norm(self) -> float:
-        return sqrt(self.x ** 2 + self.y ** 2)
+        return sqrt(self.x**2 + self.y**2)
 
     def __add__(self, rhs) -> Point:
         return Point(x=self.x + rhs.x, y=self.y + rhs.y)
