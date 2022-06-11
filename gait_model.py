@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: Python 3.10.4 ('ds')
 #     language: python
 #     name: python3
 # ---
@@ -379,4 +379,6 @@ for actual, pred in zip(kinematics, outputs):
 
 
 # %%
-# !jupytext --set-formats ipynb, py:percent gait_model.ipynb
+# # !jupytext --set-formats ipynb, py:percent gait_model.ipynb
+
+# %%
