@@ -275,33 +275,20 @@ def train(
 # %%
 
 DATA_DIR = Path("KinematicsData/")
-SANITY_DIR = Path("SanityChecks/")
+FIGURE_DIR = Path("Figures/")
 MODEL_OUTPUT_DIR = Path("ModelOutputs/")
 MODEL_DIR = Path("Models/")
 
-segment_names = ["FL", "FR", "BL", "BR", "SP"]
-joints_per_segment = (3, 3, 3, 3, 2)
-dof_per_join = 2
+df = pd.read_csv(next(DATA_DIR.glob("*_kinematic.csv")))
 
-CSV_HEADER = []
-for segment_name, num_joints in zip(segment_names, joints_per_segment):
-    for joint_index in range(num_joints):
-        for dof_index in range(dof_per_join):
-            CSV_HEADER.append(f"{segment_name} A{joint_index + 1} DF {dof_index + 1}")
+# We only need the first 28 columns (ignore the touch sensors for output)
+CSV_HEADER = df.columns[:28]
+
+# %%
 
 datasets = {
     f.stem.split("_")[0]: AngleDataset(f) for f in DATA_DIR.glob("*_kinematic.csv")
 }
-
-# %%
-def plot_losses(losses: list[float], title: str):
-    plt.plot(losses)
-    plt.title(title)
-    plt.xlabel("Batch")
-    plt.ylabel("Loss")
-
-
-# %%
 
 # Model hyperparameters
 layer_sizes = [33, 31, 30, 28]
@@ -311,13 +298,11 @@ num_epochs = 100
 batch_size = 32
 learning_rate = 0.01
 
-final_losses = []
+for gait_name in datasets:
 
-for name in datasets:
+    dataset = datasets[gait_name]
 
-    dataset = datasets[name]
-
-    print(f"Processing the '{name}' dataset.")
+    print(f"Processing the '{gait_name}' dataset.")
 
     model, losses = train(
         dataset,
@@ -332,7 +317,7 @@ for name in datasets:
     predictions = inference(model, dataset)
 
     # Save the outputs to a csv for quicker comparisons later
-    with open(MODEL_OUTPUT_DIR / f"{name}_output.csv", "w") as csvfile:
+    with open(MODEL_OUTPUT_DIR / f"{gait_name}_output.csv", "w") as csvfile:
 
         writer = csv.writer(csvfile)
 
@@ -341,27 +326,27 @@ for name in datasets:
         for row in predictions:
             writer.writerow(row.tolist())
 
-    torch.save(model, MODEL_DIR / f"{name}_model.pt")
+    torch.save(model, MODEL_DIR / f"{gait_name}_model.pt")
 
-    # final_loss = sum(losses[-100:]) / 100
-    # final_losses.append(final_loss)
+    final_loss = sum(losses[-100:]) / 100
 
-    # print(f"Final loss for {name}: {final_loss}")
-    # if plot:
-    # plot_losses(losses, name)
+    print(f"Final loss for {gait_name}: {final_loss}")
 
-# return sum(final_losses) / len(final_losses)
+    plt.plot(losses, label=gait_name)
 
+plt.xlabel("Batch")
+plt.ylabel("Loss")
+plt.legend()
+
+plt.savefig(FIGURE_DIR / f"losses.png", facecolor="white")
 
 # %% [markdown]
 # ## Sanity Check Data By Plotting
-# Also saving to files under Sanity_Checks
 
 # %%
+
 kinematics = sorted([f for f in DATA_DIR.glob("*_kinematic.csv") if f.is_file()])
 outputs = sorted([f for f in MODEL_OUTPUT_DIR.glob("*_output.csv") if f.is_file()])
-
-# %%
 
 for actual, pred in zip(kinematics, outputs):
 
@@ -390,7 +375,7 @@ for actual, pred in zip(kinematics, outputs):
         ax.set_title(col)
         ax.legend()
 
-    fig.savefig(SANITY_DIR / f"{gait_name}_comparison.png", facecolor="white")
+    fig.savefig(FIGURE_DIR / f"{gait_name}_comparison.png", facecolor="white")
 
 
 # %%
