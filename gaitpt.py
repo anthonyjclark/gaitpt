@@ -17,6 +17,11 @@ from loguru import logger
 from matplotlib.animation import FuncAnimation
 from numpy.lib.function_base import angle
 
+from pathlib import Path
+
+ANIMATIONS_PATH = Path("Animations/")
+DATA_PATH = Path("KinematicsData/")
+
 
 def clip(val: float, lo: float, hi: float) -> float:
     return max(min(val, hi), lo)
@@ -193,8 +198,8 @@ class Animat:
     def do_job(self, job_dict: dict):
         # perform job according instruction dict
         # when a leg is moving backwards, we'll have the other legs either start their step or just lift a little
-        vertical_reach = 0.4
-        hor_reach = job_dict["reach multiplier"]
+        vertical_reach = job_dict["vertical_reach"]
+        hor_reach = job_dict["horizontal_reach"]
         foot_order = job_dict["foot order"]
 
         # Initial position given by current leg positions
@@ -207,18 +212,19 @@ class Animat:
         # Forward motion path
         num_steps = 16
 
+        delta_y = 2 * vertical_reach / num_steps
+
         xs = [pos[0].x for pos in positions]
         ys = [pos[0].y for pos in positions]
 
-        delta_y = 2 * vertical_reach / num_steps
-
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
-        x_delts = [
-            (reach * job_dict["reach multiplier"] / num_steps)
-            for reach in horiz_reaches
-        ]
-        y_delts = [delt for delt in x_delts]
+        vertical_reaches = [leg.get_hip().y - leg.get_lowest_pt() for leg in self.legs]
+        x_delts = [(reach * hor_reach / num_steps) for reach in horiz_reaches]
+        # y_delts = [delt * vertical_reach for delt in x_delts]
+        y_delts = [(reach * vertical_reach / num_steps) for reach in vertical_reaches]
+        # y_delts = [vertical_reach] * len(x_delts)
+        # y_delts = [delta_y] * len(x_delts)
 
         # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
         stages = [0] * len(self.legs)
@@ -288,8 +294,42 @@ class Animat:
             ]
         ]  # each frame contains info for one step of all 4 legs
 
-        save_frames = [["Front Left", "Front Right", "Back Left", "Back Right"]]
-        save_frames_angles = []
+        save_frames_angles = [
+            [
+                "FL A1 DF 1",
+                "FL A1 DF 2",
+                "FL A2 DF 1",
+                "FL A2 DF 2",
+                "FL A3 DF 1",
+                "FL A3 DF 2",
+                "FR A1 DF 1",
+                "FR A1 DF 2",
+                "FR A2 DF 1",
+                "FR A2 DF 2",
+                "FR A3 DF 1",
+                "FR A3 DF 2",
+                "BL A1 DF 1",
+                "BL A1 DF 2",
+                "BL A2 DF 1",
+                "BL A2 DF 2",
+                "BL A3 DF 1",
+                "BL A3 DF 2",
+                "BR A1 DF 1",
+                "BR A1 DF 2",
+                "BR A2 DF 1",
+                "BR A2 DF 2",
+                "BR A3 DF 1",
+                "BR A3 DF 2",
+                "SP A1 DF 1",
+                "SP A1 DF 2",
+                "SP A2 DF 1",
+                "SP A2 DF 2",
+                "T FL",
+                "T FR",
+                "T BL",
+                "T BR",
+            ]
+        ]
 
         torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
 
@@ -354,7 +394,7 @@ class Animat:
                 ).flatten()
                 angle_frame = np.append(angle_frame, angles)
 
-                if leg.get_lowest_pt() <= self.ground:
+                if leg.get_lowest_pt() <= self.ground + 0.05:
                     touch_sensors.append(1.0)
                 else:
                     touch_sensors.append(0.0)
@@ -367,10 +407,12 @@ class Animat:
 
         animation = self._animate(anim_frames)
         HTML(animation.to_jshtml())
-        animation.save(f'./animation_gifs/{job_dict["name"]}.gif')
 
-        # save_data(save_frames, f'{job_dict["name"]}.csv')
-        save_data(save_frames_angles, f'./angle_files/{job_dict["name"]}_angles.csv')
+        gait_name = job_dict["name"]
+
+        animation.save(ANIMATIONS_PATH / f"{gait_name}_procedural.gif")
+
+        save_data(save_frames_angles, DATA_PATH / f"{gait_name}.csv")
 
     def split_pts(self, pts: List[Point]) -> Tuple[List[float], List[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
@@ -468,6 +510,9 @@ class Leg:
 
         return self.global_joint_poses()[-2].point
 
+    def get_hip(self) -> Point:
+        return self.global_joint_poses()[0].point
+
     def get_angles(self) -> List[float]:
         poses = self.global_joint_poses()
         angles = []
@@ -507,6 +552,8 @@ class Leg:
                 if curr_job == "trot":
                     mult = 1.3
                 elif curr_job == "canter":
+                    mult = 2
+                elif curr_job == "gallop":
                     mult = 2
                 rotation = base_rotation * mult
 
@@ -601,15 +648,16 @@ def save_data(data: List[List[List[Pose]]], filename: str):
 
 
 # test creation from json file
-animat2 = Animat(file="sample_json.json")
+animat2 = Animat(file="dog_config.json")
 curr_job = None
 
-with open("sample_json.json", "r") as f:
+with open("dog_config.json", "r") as f:
     f = json.load(f)
     jobs = f["jobs"]
 
     for job in jobs:
         curr_job = job["name"]
+        # if curr_job == "gallop":
         animat2.do_job(job)
 
 

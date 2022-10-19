@@ -158,4 +158,8 @@ cython_debug/
 .history
 .ionide
 
+*/TMP/*
+*/Sanity_Checks/*_actual.png
+*/Sanity_Checks/*_predicted.png
+
 # End of https://www.toptal.com/developers/gitignore/api/VisualStudioCode,Python
