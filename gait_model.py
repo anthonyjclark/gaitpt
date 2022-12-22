@@ -95,7 +95,7 @@ def train_batch(
         model (nn.Module): model to train
         x (torch.Tensor): input data
         y (torch.Tensor): labeled output data
-        optimizer (optim.Optimizer): SGD-based optimzier
+        optimizer (optim.Optimizer): SGD-based optimizer
         criteria (nn.Module): loss function
 
     Returns:
@@ -126,7 +126,7 @@ def train_loop(
     model: nn.Module,
     loader: DataLoader,
     optimizer: optim.Optimizer,
-    critera: nn.Module,
+    criterion: nn.Module,
     num_epochs: int,
 ) -> list[float]:
     """Train the model.
@@ -135,7 +135,7 @@ def train_loop(
         model (nn.Module): model to train
         loader (DataLoader): training data
         optimizer (nn.Module): SGD-based optimizer
-        critera (nn.Module): loss function
+        criterion (nn.Module): loss function
         num_epochs (int): number of epochs to train
 
     Returns:
@@ -146,7 +146,7 @@ def train_loop(
 
     for _ in range(num_epochs):
         for x, y in loader:
-            loss = train_batch(model, x, y, optimizer, critera)
+            loss = train_batch(model, x, y, optimizer, criterion)
             losses.append(loss)
 
     return losses
@@ -200,7 +200,7 @@ class GaitModel(nn.Module):
 
         hidden_layers = []
 
-        # Loop over layer_sizes and create linear->relu[->batchnorm][->dropout] layers
+        # Loop over layer_sizes and create Linear->ReLU[->BatchNorm][->Dropout] layers
         for nl, nlminus1 in zip(layer_sizes[1:-1], layer_sizes):
             # Required layers
             layers = [nn.Linear(nlminus1, nl), nn.ReLU()]
@@ -265,7 +265,7 @@ def train(
         model=model,
         loader=data_loader,
         optimizer=optimizer,
-        critera=criterion,
+        criterion=criterion,
         num_epochs=num_epochs,
     )
 
@@ -317,9 +317,9 @@ for gait_name in datasets:
     predictions = inference(model, dataset)
 
     # Save the outputs to a csv for quicker comparisons later
-    with open(MODEL_OUTPUT_DIR / f"{gait_name}_output.csv", "w") as csvfile:
+    with open(MODEL_OUTPUT_DIR / f"{gait_name}_output.csv", "w") as csv_file:
 
-        writer = csv.writer(csvfile)
+        writer = csv.writer(csv_file)
 
         writer.writerow(CSV_HEADER)
 
