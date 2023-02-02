@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import csv
 import json
-import math
+
 from dataclasses import dataclass
 from itertools import accumulate
-from math import atan2, cos, degrees, inf, pi, radians, sin, sqrt
+from math import atan2, cos, inf, pi, radians, sin, sqrt, degrees
 from typing import Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
@@ -23,30 +23,26 @@ ANIMATIONS_PATH = Path("Animations/")
 DATA_PATH = Path("KinematicsData/")
 
 
-def clip(val: float, lo: float, hi: float) -> float:
-    return max(min(val, hi), lo)
+def wrap_to_pi(angle: float) -> float:
+    return (angle + pi) % (2 * pi) - pi
 
 
-def deg(deg: float) -> float:
-    return rad(radians(deg))
+def deg2rad(angle: float) -> float:
+    return wrap_to_pi(radians(angle))
 
 
-def rad(rad: float) -> float:
-    rad = rad % (2 * pi)
-    return rad if rad < pi else rad - 2 * pi
+# def rad2deg(angle: float) -> float:
+#     return degrees(wrap_to_pi(angle))
 
 
-def interweave_lists(l1, l2):
-    out = []
-
-    for v1, v2 in zip(l1, l2):
-        out.append(v1)
-        out.append(v2)
-    return out
+def interweave(list1: list, list2: list) -> list:
+    return [val for pair in zip(list1, list2) for val in pair]
 
 
 @dataclass
 class Point:
+    """A point in 2D space."""
+
     x: float = 0.0
     y: float = 0.0
 
@@ -64,11 +60,14 @@ class Point:
     def angle_between(cls, pt1: Point, pt2: Point) -> float:
         pt1_angle = atan2(pt1.y, pt1.x)
         pt2_angle = atan2(pt2.y, pt2.x)
-        return rad(pt2_angle - pt1_angle)
+        return wrap_to_pi(pt2_angle - pt1_angle)
+        # return rad2deg(pt2_angle - pt1_angle)
 
 
 @dataclass(repr=False)  # don't overwrite repr fx
 class Pose:
+    """A 'pose' in 2D space."""
+
     point: Point
     angle: float
 
@@ -77,9 +76,10 @@ class Pose:
 
 
 class Animat:
-    def __init__(self, file: str = None) -> None:
-        """Implementing a four-legged, walking animat.
+    """Kinematics for a four-legged, walking animat."""
 
+    def __init__(self, file: str | None = None) -> None:
+        """
         Some dimensions and angles inspired by:
             Towards Dynamic Trot Gait Locomotion—Design, Control, and Experiments with
             Cheetah-cub, a Compliant Quadruped Robot
@@ -88,7 +88,10 @@ class Animat:
         """
 
         if file:
-            # create from specifications
+            # Grab animat configuation from json file
+            with open(file) as json_file:
+                data = json.load(json_file)["animat"]
+
             f = open(file)
             f = json.load(f)
             data = f["animat"]
@@ -103,12 +106,12 @@ class Animat:
                 angles = []
                 for angle in leg_dict["angles"]:
                     # gotta convert all of these to degrees
-                    angles.append(deg(angle))
+                    angles.append(deg2rad(angle))
 
                 limits = []
                 for limit in leg_dict["limits"]:
                     # each is a 2-len tuple, but in json can only do lists
-                    limits.append((deg(limit[0]), deg(limit[1])))
+                    limits.append((deg2rad(limit[0]), deg2rad(limit[1])))
 
                 lengths = leg_dict["lengths"]
 
@@ -127,11 +130,11 @@ class Animat:
 
             # Angle and limits are relative to parent joint (or the world in the case of
             # the firt segment)
-            front_leg_angles = [deg(300), deg(-80), deg(80)]
+            front_leg_angles = [deg2rad(300), deg2rad(-80), deg2rad(80)]
             front_leg_limits = [
-                (deg(270), deg(340)),
-                (deg(-160), deg(20)),
-                (deg(20), deg(160)),
+                (deg2rad(270), deg2rad(340)),
+                (deg2rad(-160), deg2rad(20)),
+                (deg2rad(20), deg2rad(160)),
             ]
             front_leg_lengths = [0.26, 0.42, 0.32]
             self.front_left = Leg(
@@ -344,7 +347,7 @@ class Animat:
         for leg in self.legs:
             # frame.append(leg.global_joint_poses()[1])
             angles = leg.get_angles()
-            angles = np.array(interweave_lists(angles, np.zeros(len(angles)))).flatten()
+            angles = np.array(interweave(angles, np.zeros(len(angles)))).flatten()
             angle_frame = np.append(angle_frame, angles)
 
             if leg.get_lowest_pt() <= self.ground:
@@ -389,9 +392,7 @@ class Animat:
             for leg in self.legs:
                 # frame.append(leg.global_joint_poses()[1])
                 angles = leg.get_angles()
-                angles = np.array(
-                    interweave_lists(angles, np.zeros(len(angles)))
-                ).flatten()
+                angles = np.array(interweave(angles, np.zeros(len(angles)))).flatten()
                 angle_frame = np.append(angle_frame, angles)
 
                 if leg.get_lowest_pt() <= self.ground + 0.05:
@@ -566,7 +567,7 @@ class Leg:
 
                     joint_poses = self.global_joint_poses()
 
-                    new_angle = rad(joint_poses[i].angle + rotation)
+                    new_angle = rad2deg(joint_poses[i].angle + rotation)
 
                     # Compute the new angle and clip within specified limits
                     self.angles[i] = clip(new_angle, lo_limit, hi_limit)
@@ -588,7 +589,8 @@ class Leg:
 
                 rotation_amount = Point.angle_between(joint_to_tip, joint_to_goal)
 
-                new_angle = rad(joint_poses[i].angle + rotation_amount)
+                # FIXME: Something is wrong here... rotation_amount is in degrees...
+                new_angle = rad2deg(joint_poses[i].angle + rotation_amount)
 
                 # Compute the new angle and clip within specified limits
                 self.angles[i] = clip(new_angle, lo_limit, hi_limit)

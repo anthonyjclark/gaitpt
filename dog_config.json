@@ -117,7 +117,7 @@
             }
         ]
     },
-    "jobs": [
+    "gaits": [
         {
             "name": "walk",
             "horizontal_reach": 0.4,

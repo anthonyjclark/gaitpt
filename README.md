@@ -6,7 +6,12 @@ Pre-training gaits for genetic algorithms
 
 # Process
 
-TODO(Kevin): how do we train a NN for walking (for example)?
+1. Create robot and gait patterns (e.g., `dog_config.json`)
+2. Run `gaitpt.py` to generate kinematics data in `KinematicsData`
+	- saves animations in `Animations`
+3. Run `gait_model.ipynb` to generate trained models in `Models`
+	- saves model outputs in `ModelOutputs`
+	- saves figures used for comparisons in `Figures`
 
 # Initial Notes
 
