@@ -1,11 +1,9 @@
 {
     "animat": {
         "name": "Dog",
-        "hips": [
-            0,
-            -0.5
-        ],
-        "height": 0,
+        "front_hip_x": 0,
+        "back_hip_x": -0.5,
+        "hip_y": 0,
         "legs": [
             {
                 "angles": [
@@ -32,7 +30,7 @@
                     0.42,
                     0.32
                 ],
-                "hip": 0
+                "hip": "front"
             },
             {
                 "angles": [
@@ -59,7 +57,7 @@
                     0.42,
                     0.32
                 ],
-                "hip": 0
+                "hip": "front"
             },
             {
                 "angles": [
@@ -86,7 +84,7 @@
                     0.42,
                     0.17
                 ],
-                "hip": 1
+                "hip": "back"
             },
             {
                 "angles": [
@@ -113,7 +111,7 @@
                     0.42,
                     0.17
                 ],
-                "hip": 1
+                "hip": "back"
             }
         ]
     },
@@ -135,8 +133,7 @@
                 [
                     2
                 ]
-            ],
-            "savefile": "walk.csv"
+            ]
         },
         {
             "name": "trot",
@@ -152,8 +149,7 @@
                     0,
                     3
                 ]
-            ],
-            "savefile": "trot.csv"
+            ]
         },
         {
             "name": "canter",
@@ -170,8 +166,7 @@
                 [
                     1
                 ]
-            ],
-            "savefile": "canter.csv"
+            ]
         },
         {
             "name": "gallop",
@@ -186,8 +181,7 @@
                     1,
                     2
                 ]
-            ],
-            "savefile": "gallop.csv"
+            ]
         }
     ]
 }
