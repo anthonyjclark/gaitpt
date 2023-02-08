@@ -156,7 +156,7 @@ class Leg:
     def hip_position(self) -> Point:
         return self.global_joint_poses()[0].point
 
-    def lowest_position(self) -> float:
+    def lowest_y(self) -> float:
         """Get the lowest point of the leg."""
         return min([pose.point.y for pose in self.global_joint_poses()])
 
@@ -165,12 +165,17 @@ class Leg:
         self.hip = Point(self.hip.x, self.hip.y + y_offset)
 
     def move_tip(
-        self, goal: Point, max_steps: int = 100, tolerance: float = 1e-1
+        self,
+        goal: Point,
+        rotation_factor: float,
+        max_steps: int = 100,
+        tolerance: float = 1e-1,
     ) -> None:
         """Move the foot/tip using Cyclic Coordinate Descent Inverse Kinematics (CCD-IK).
 
         Args:
             goal (Point): goal position
+            rotation_factor (float): how much to rotate the leg
             max_steps (int, optional): maximum steps to use. Defaults to 100.
             tolerance (float, optional): required closeness. Defaults to 1e-1.
 
@@ -191,21 +196,12 @@ class Leg:
         for _ in range(max_steps):
 
             # Adjustment so that no body parts dip below the ground plane
-            if self.lowest_position() <= self.ground:
+            if self.lowest_y() <= self.ground:
 
-                delta = abs(self.lowest_position() - self.ground)
+                delta = abs(self.lowest_y() - self.ground)
 
                 base_rotation = -0.1
-
-                # TODO: better data structure for this, and no global var
-                mult = 1
-                if curr_job == "trot":
-                    mult = 1.3
-                elif curr_job == "canter":
-                    mult = 2
-                elif curr_job == "gallop":
-                    mult = 2
-                rotation = base_rotation * mult
+                rotation = base_rotation * rotation_factor
 
                 for i in range(1, self.num_segments):
 
@@ -265,7 +261,7 @@ class Leg:
             prev_distance_to_goal = tip_distance_to_goal
 
 
-class Animat:
+class QuadrupedAnimat:
     """Kinematics for a four-legged, walking animat.
 
     Some dimensions and angles inspired by:
@@ -275,71 +271,30 @@ class Animat:
         Emilie Badri, Auke Jan Ijspeert
     """
 
-    def __init__(self, file: str | None = None) -> None:
+    def __init__(self, file: str) -> None:
 
-        if file:
+        with open(file, "r") as json_file:
+            animat = json.load(json_file)["animat"]
 
-            with open(file) as json_file:
-                animat = json.load(json_file)["animat"]
+        front_hip_pos = Point(animat["front_hip_x"], animat["hip_y"])
+        back_hip_pos = Point(animat["back_hip_x"], animat["hip_y"])
 
-            front_hip_pos = Point(animat["front_hip_x"], animat["hip_y"])
-            back_hip_pos = Point(animat["back_hip_x"], animat["hip_y"])
+        self.legs: list[Leg] = []
 
-            self.legs = []
+        for leg_dict in animat["legs"]:
 
-            for leg_dict in animat["legs"]:
+            angles = [deg2rad(angle) for angle in leg_dict["angles"]]
+            limits = [(deg2rad(lm[0]), deg2rad(lm[1])) for lm in leg_dict["limits"]]
+            lengths = leg_dict["lengths"]
+            hip_pos = front_hip_pos if leg_dict["hip"] == "front" else back_hip_pos
 
-                angles = [deg2rad(angle) for angle in leg_dict["angles"]]
-                limits = [(deg2rad(lm[0]), deg2rad(lm[1])) for lm in leg_dict["limits"]]
-                lengths = leg_dict["lengths"]
-                hip_pos = front_hip_pos if leg_dict["hip"] == "front" else back_hip_pos
+            self.legs.append(Leg(angles, limits, lengths, hip_pos))
+            self.legs.reverse()
 
-                self.legs.append(Leg(angles, limits, lengths, hip_pos))
-                self.legs.reverse()
-
-            # Location of ground below "hip_y" is unknown until we have posed the legs
-            self.ground = self.legs[0].global_joint_poses()[-1].point.y
-            for leg in self.legs:
-                leg.ground = self.ground
-
-        # else:
-
-        # TODO: remove this? maybe take dict as input and use this as a test case at bottom?
-
-        # back_hip_pos = Point(-0.5, 0)
-
-        # # Angle and limits are relative to parent joint (or the world in the case of
-        # # the firt segment)
-        # front_leg_angles = [deg2rad(300), deg2rad(-80), deg2rad(80)]
-        # front_leg_limits = [
-        #     (deg2rad(270), deg2rad(340)),
-        #     (deg2rad(-160), deg2rad(20)),
-        #     (deg2rad(20), deg2rad(160)),
-        # ]
-        # front_leg_lengths = [0.26, 0.42, 0.32]
-        # self.front_left = Leg(
-        #     front_leg_angles, front_leg_limits, front_leg_lengths, hip=Point(0, 0.1)
-        # )
-        # self.front_right = Leg(
-        #     front_leg_angles, front_leg_limits, front_leg_lengths
-        # )
-
-        # rear_leg_angles = front_leg_angles
-        # rear_leg_limits = front_leg_limits
-        # rear_leg_lengths = [0.41, 0.42, 0.17]
-
-        # self.rear_left = Leg(
-        #     rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=Point(-0.5, 0.1)
-        # )
-        # self.rear_right = Leg(
-        #     rear_leg_angles, rear_leg_limits, rear_leg_lengths, hip=back_hip_pos
-        # )
-        # self.legs = [
-        #     self.front_left,
-        #     self.front_right,
-        #     self.rear_left,
-        #     self.rear_right,
-        # ]
+        # Location of ground below "hip_y" is unknown until we have posed the legs
+        self.ground = self.legs[0].global_joint_poses()[-1].point.y
+        for leg in self.legs:
+            leg.ground = self.ground
 
     def __animate(
         # TODO: add type alias for this mess
@@ -382,7 +337,8 @@ class Animat:
 
         vertical_reach = job_dict["vertical_reach"]
         hor_reach = job_dict["horizontal_reach"]
-        foot_order = job_dict["foot order"]
+        foot_order = job_dict["foot_order"]
+        rotation_factor = job_dict["rotation_factor"]
 
         # Initial position given by current leg positions should be a list[list[pts]]
         positions = [[leg.tip_position()] for leg in self.legs]
@@ -397,7 +353,7 @@ class Animat:
 
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
-        vertical_reaches = [leg.get_hip().y - leg.get_lowest_pt() for leg in self.legs]
+        vertical_reaches = [leg.hip_position().y - leg.lowest_y() for leg in self.legs]
         x_delts = [(reach * hor_reach / num_steps) for reach in horiz_reaches]
         # y_delts = [delt * vertical_reach for delt in x_delts]
         y_delts = [(reach * vertical_reach / num_steps) for reach in vertical_reaches]
@@ -512,7 +468,7 @@ class Animat:
         torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
 
         touch_sensors = [
-            1.0 if (leg.get_lowest_pt() <= self.ground) else 0.0 for leg in self.legs
+            1.0 if (leg.lowest_y() <= self.ground) else 0.0 for leg in self.legs
         ]
 
         # TODO: get this section into a fx, since it gets re-used /*
@@ -525,7 +481,7 @@ class Animat:
             angles = np.array(interweave(angles, np.zeros(len(angles)))).flatten()
             angle_frame = np.append(angle_frame, angles)
 
-            if leg.get_lowest_pt() <= self.ground:
+            if leg.lowest_y() <= self.ground:
                 touch_sensors.append(1.0)
             else:
                 touch_sensors.append(0.0)
@@ -543,7 +499,7 @@ class Animat:
         for goal_idx in range(len(positions[0])):
 
             for leg_idx, leg in enumerate(self.legs):
-                leg.move_tip(positions[leg_idx][goal_idx])
+                leg.move_tip(positions[leg_idx][goal_idx], rotation_factor)
 
             # animate
             all_pts = self.get_pts_from_gjp()
@@ -570,7 +526,7 @@ class Animat:
                 angles = np.array(interweave(angles, np.zeros(len(angles)))).flatten()
                 angle_frame = np.append(angle_frame, angles)
 
-                if leg.get_lowest_pt() <= self.ground + 0.05:
+                if leg.lowest_y() <= self.ground + 0.05:
                     touch_sensors.append(1.0)
                 else:
                     touch_sensors.append(0.0)
@@ -618,7 +574,7 @@ if __name__ == "__main__":
     DATA_PATH = Path("KinematicsData/")
 
     animat_config_file = "dog_config.json"
-    animat = Animat(file=animat_config_file)
+    animat = QuadrupedAnimat(file=animat_config_file)
 
     with open(animat_config_file, "r") as config_file:
         config_file = json.load(config_file)
