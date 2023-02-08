@@ -93,7 +93,7 @@ class Leg:
         angles: list[float],
         limits: list[tuple[float, float]],
         lengths: list[float],
-        hip: Point = Point(),
+        hip_position: Point = Point(),
     ) -> None:
         """Create a single leg.
 
@@ -105,7 +105,7 @@ class Leg:
         """
 
         self.num_segments = 3
-        self.hip = hip
+        self.hip_position = hip_position
 
         assert len(angles) == self.num_segments
         assert len(limits) == self.num_segments
@@ -125,7 +125,7 @@ class Leg:
         """Compute the global position and angle of each joint."""
 
         # Position and angle of hip
-        poses = [Pose(self.hip, self.angles[0])]
+        poses = [Pose(self.hip_position, self.angles[0])]
 
         for i in range(self.num_segments):
             parent_angle = poses[-1].angle
@@ -153,16 +153,13 @@ class Leg:
     def tip_position(self) -> Point:
         return self.global_joint_poses()[-1].point
 
-    def hip_position(self) -> Point:
-        return self.global_joint_poses()[0].point
-
     def lowest_y(self) -> float:
         """Get the lowest point of the leg."""
         return min([pose.point.y for pose in self.global_joint_poses()])
 
     def raise_hip(self, y_offset: float = 0.1) -> None:
         """Raise the hip a bit to make it visible in the animation."""
-        self.hip = Point(self.hip.x, self.hip.y + y_offset)
+        self.hip_position = Point(self.hip_position.x, self.hip_position.y + y_offset)
 
     def move_tip(
         self,
@@ -183,8 +180,7 @@ class Leg:
             ValueError: if ground level not set
         """
 
-        # TODO: this doesn't take into account the position of the leg
-        if goal.norm() > self.max_reach:
+        if (goal - self.hip_position).norm() > self.max_reach:
             logger.warning(f"The position {goal} is beyond the reach of the leg.")
 
         if self.ground is None:
@@ -221,9 +217,7 @@ class Leg:
                     # TODO: unexplained
                     rotation *= -1
 
-            # joint_poses[-1] is the tip (no angle associated with tip)
-
-            # IK: start at the ankle and work to the hip
+            # IK: start at the ankle and work to the hip (no joint at tip)
             for i in range(self.num_segments - 1, -1, -1):
 
                 parent_angle = 0 if i == 0 else self.angles[i - 1]
@@ -337,10 +331,10 @@ class QuadrupedAnimat:
     ) -> None:
         """Run the gait according to the gait dict."""
 
-        vertical_reach = job_dict["vertical_reach"]
-        hor_reach = job_dict["horizontal_reach"]
+        vert_reach = job_dict["vertical_reach"]
+        horz_reach = job_dict["horizontal_reach"]
         foot_order = job_dict["foot_order"]
-        rotation_factor = job_dict["rotation_factor"]
+        rota_factor = job_dict["rotation_factor"]
 
         # Initial position given by current leg positions should be a list[list[pts]]
         positions = [[leg.tip_position()] for leg in self.legs]
@@ -348,17 +342,17 @@ class QuadrupedAnimat:
         # Forward motion path
         num_steps = 16
 
-        delta_y = 2 * vertical_reach / num_steps
+        delta_y = 2 * vert_reach / num_steps
 
         xs = [pos[0].x for pos in positions]
         ys = [pos[0].y for pos in positions]
 
         # first do reach
         horiz_reaches = [leg.max_reach for leg in self.legs]
-        vertical_reaches = [leg.hip_position().y - leg.lowest_y() for leg in self.legs]
-        x_delts = [(reach * hor_reach / num_steps) for reach in horiz_reaches]
+        vertical_reaches = [leg.hip_position.y - leg.lowest_y() for leg in self.legs]
+        x_delts = [(reach * horz_reach / num_steps) for reach in horiz_reaches]
         # y_delts = [delt * vertical_reach for delt in x_delts]
-        y_delts = [(reach * vertical_reach / num_steps) for reach in vertical_reaches]
+        y_delts = [(reach * vert_reach / num_steps) for reach in vertical_reaches]
         # y_delts = [vertical_reach] * len(x_delts)
         # y_delts = [delta_y] * len(x_delts)
 
@@ -501,7 +495,7 @@ class QuadrupedAnimat:
         for goal_idx in range(len(positions[0])):
 
             for leg_idx, leg in enumerate(self.legs):
-                leg.move_tip(positions[leg_idx][goal_idx], rotation_factor)
+                leg.move_tip(positions[leg_idx][goal_idx], rota_factor)
 
             # animate
             all_pts = self.get_pts_from_gjp()
@@ -544,7 +538,9 @@ class QuadrupedAnimat:
 
         gait_name = job_dict["name"]
         animation.save(str(animations_path / f"{gait_name}.gif"))
-        save_data(save_frames_angles, str(kinematics_path / f"{gait_name}.csv"))
+        save_data(
+            save_frames_angles, str(kinematics_path / f"{gait_name}_kinematic.csv")
+        )
 
     def split_pts(self, pts: list[Point]) -> tuple[list[float], list[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
@@ -570,7 +566,7 @@ class QuadrupedAnimat:
 
 if __name__ == "__main__":
 
-    kinematics_path = Path("Kinematics/")
+    kinematics_path = Path("MotionData/")
     animations_path = Path("Animations/")
 
     animat_config_file = "dog_config.json"
@@ -581,4 +577,5 @@ if __name__ == "__main__":
         gaits = config_file["gaits"]
 
         for gait in gaits:
+            print("Running gait:", gait["name"])
             animat.run_gait(gait, kinematics_path, animations_path)
