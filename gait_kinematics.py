@@ -5,17 +5,16 @@ import csv
 import json
 
 from dataclasses import dataclass
+from enum import Enum
 from itertools import accumulate
-from math import atan2, cos, inf, pi, radians, sin, sqrt, degrees
+from math import atan2, cos, inf, pi, radians, sin, sqrt
 from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
-from icecream import ic
 from IPython.display import HTML
 from loguru import logger
 from matplotlib.animation import FuncAnimation
-from numpy.lib.function_base import angle
 
 from pathlib import Path
 
@@ -49,6 +48,14 @@ def save_data(data: list[list[list[Pose]]], filename: str):
             else:
                 writer.writerow(one_row)
                 one_row = [num]
+
+
+class FootStage(Enum):
+    PLANTED = 0
+    FORWARD = 1
+    BACKWARD = 2
+    REPOSITION = 3
+    DONE = 4
 
 
 @dataclass
@@ -133,7 +140,7 @@ class Leg:
             x = poses[-1].point.x + self.lengths[i] * cos(parent_angle)
             y = poses[-1].point.y + self.lengths[i] * sin(parent_angle)
 
-            # No angle for tip of leg
+            # No angle for tip of leg (foot)
             angle = self.angles[i + 1] if i < self.num_segments - 1 else inf
 
             poses.append(Pose(Point(x=x, y=y), angle))
@@ -150,7 +157,7 @@ class Leg:
             angles.append(pose.angle)
         return angles
 
-    def tip_position(self) -> Point:
+    def foot_position(self) -> Point:
         return self.global_joint_poses()[-1].point
 
     def lowest_y(self) -> float:
@@ -161,7 +168,7 @@ class Leg:
         """Raise the hip a bit to make it visible in the animation."""
         self.hip_position = Point(self.hip_position.x, self.hip_position.y + y_offset)
 
-    def move_tip(
+    def move_foot(
         self,
         goal: Point,
         rotation_factor: float,
@@ -217,7 +224,7 @@ class Leg:
                     # TODO: unexplained
                     rotation *= -1
 
-            # IK: start at the ankle and work to the hip (no joint at tip)
+            # IK: start at the ankle and work to the hip (no joint at foot)
             for i in range(self.num_segments - 1, -1, -1):
 
                 parent_angle = 0 if i == 0 else self.angles[i - 1]
@@ -227,10 +234,10 @@ class Leg:
 
                 joint_poses = self.global_joint_poses()
 
-                joint_to_tip = joint_poses[-1].point - joint_poses[i].point
+                joint_to_foot = joint_poses[-1].point - joint_poses[i].point
                 joint_to_goal = goal - joint_poses[i].point
 
-                rotation_amount = Point.angle_between(joint_to_tip, joint_to_goal)
+                rotation_amount = Point.angle_between(joint_to_foot, joint_to_goal)
 
                 # FIXME: Something is wrong here... rotation_amount is in degrees...
                 # Just get rid of conversion?
@@ -243,16 +250,18 @@ class Leg:
                 self.angles[i] = new_angle
 
             # Check if close enough to goal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               l
-            tip_distance_to_goal = abs((goal - self.tip_position()).norm())
-            if tip_distance_to_goal < tolerance:
+            foot_distance_to_goal = abs((goal - self.foot_position()).norm())
+            if foot_distance_to_goal < tolerance:
                 break
 
             # Check if still making progress (goal might be out of reach)
-            distance_since_last_step = abs(tip_distance_to_goal - prev_distance_to_goal)
+            distance_since_last_step = abs(
+                foot_distance_to_goal - prev_distance_to_goal
+            )
             if distance_since_last_step < tolerance:
                 break
 
-            prev_distance_to_goal = tip_distance_to_goal
+            prev_distance_to_goal = foot_distance_to_goal
 
 
 class QuadrupedAnimat:
@@ -331,87 +340,113 @@ class QuadrupedAnimat:
     ) -> None:
         """Run the gait according to the gait dict."""
 
-        vert_reach = job_dict["vertical_reach"]
-        horz_reach = job_dict["horizontal_reach"]
-        foot_order = job_dict["foot_order"]
-        rota_factor = job_dict["rotation_factor"]
+        horz_reach: float = job_dict["horizontal_reach"]
+        vert_reach: float = job_dict["vertical_reach"]
 
-        # Initial position given by current leg positions should be a list[list[pts]]
-        positions = [[leg.tip_position()] for leg in self.legs]
+        foot_order: list[list[int]] = job_dict["foot_order"]
 
-        # Forward motion path
+        rota_factor: float = job_dict["rotation_factor"]
+
+        # Initial position given by current leg positions should be a list[list[Point]]
+        foot_positions = [[leg.foot_position()] for leg in self.legs]
+        # xs = [pos[0].x for pos in positions]
+        # ys = [pos[0].y for pos in positions]
+
+        # Number of positions along the gait
         num_steps = 16
+        x_delta = horz_reach / num_steps
 
-        delta_y = 2 * vert_reach / num_steps
-
-        xs = [pos[0].x for pos in positions]
-        ys = [pos[0].y for pos in positions]
-
-        # first do reach
-        horiz_reaches = [leg.max_reach for leg in self.legs]
-        vertical_reaches = [leg.hip_position.y - leg.lowest_y() for leg in self.legs]
-        x_delts = [(reach * horz_reach / num_steps) for reach in horiz_reaches]
-        # y_delts = [delt * vertical_reach for delt in x_delts]
-        y_delts = [(reach * vert_reach / num_steps) for reach in vertical_reaches]
-        # y_delts = [vertical_reach] * len(x_delts)
-        # y_delts = [delta_y] * len(x_delts)
+        # Vertical motion is up then down
+        y_delta = vert_reach / (num_steps // 2)
 
         # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
-        stages = [0] * len(self.legs)
-        fo_idx = 0  # to cycle through the feet that need to move
+        foot_stages = [FootStage.PLANTED] * len(self.legs)
 
-        while np.min(stages) <= 3:
+        num_foot_actions = len(foot_order)
+        foot_action_index = 0
 
-            # load up the next foot order, if there is one
+        while any(stage != FootStage.DONE for stage in foot_stages):
 
-            if fo_idx < len(foot_order):
+            if foot_action_index < num_foot_actions:
 
-                if len(foot_order[fo_idx]) == 0:
-                    fo_idx += 1
+                foot_action = foot_order[foot_action_index]
+
+                # No need to change stage for this action
+                if foot_action == 0:
+                    foot_action_index += 1
                     continue
 
-                for leg_idx in foot_order[fo_idx]:
-                    # these need to start stepping forward
-                    stages[leg_idx] = 1
+                # Start the specified legs moving forward
+                for foot_index in foot_action:
+                    foot_stages[foot_index] = FootStage.FORWARD
 
-                fo_idx += 1
+                foot_action_index += 1
 
+            # Add new positions for each leg
+            # TODO: change to foot-index
             for i, leg in enumerate(self.legs):
-                # for each leg, check what stage they're in and add the appropriate positions
-                if stages[i] == 0 or stages[i] == 4:
-                    # staging, don't move forward automatically
-                    for step in range(num_steps):
-                        # just stay still
-                        positions[i].append(positions[i][-1])
-                elif stages[i] == 1:
-                    # needs to step forward all the way
-                    for step in range(num_steps):
-                        xs[i] += x_delts[i]
-                        ys[i] += y_delts[i] if step < num_steps // 2 else -y_delts[i]
-                        if step > num_steps // 2 and ys[i] < self.ground:
-                            positions[i].append(Point(x=xs[i], y=self.ground))
-                        else:
-                            positions[i].append(Point(x=xs[i], y=ys[i]))
 
-                    stages[i] += 1
-                elif stages[i] == 2:
-                    # move backward
+                # No need to move, just copy the current position
+                if (
+                    foot_stages[i] == FootStage.PLANTED
+                    or foot_stages[i] == FootStage.DONE
+                ):
+                    foot_positions[i] += [
+                        foot_positions[i][-1] for _ in range(num_steps)
+                    ]
+
+                # Leg should move forward
+                elif foot_stages[i] == FootStage.FORWARD:
+                    new_x = foot_positions[i][-1].x
+                    new_y = foot_positions[i][-1].y
+                    for step in range(num_steps):
+                        new_x += x_delta
+                        new_y += y_delta if step < num_steps // 2 else -y_delta
+
+                        foot_positions[i].append(Point(x=new_x, y=new_y))
+
+                        # xs[i] += x_delta[i]
+                        # ys[i] += y_delta[i] if step < num_steps // 2 else -y_delta[i]
+                        # if step > num_steps // 2 and ys[i] < self.ground:
+                        # foot_positions[i].append(Point(x=xs[i], y=self.ground))
+                        # else:
+                        # foot_positions[i].append(Point(x=xs[i], y=ys[i]))
+
+                    foot_stages[i] = FootStage.BACKWARD
+
+                # Leg should move backward
+                elif foot_stages[i] == FootStage.BACKWARD:
+                    # TODO: list comprehension?
+                    new_x = foot_positions[i][-1].x
                     for step in range(int(num_steps * 1.5)):
-                        xs[i] -= x_delts[i]
-                        positions[i].append(Point(x=xs[i], y=self.ground))
-                    stages[i] += 1
-                elif stages[i] == 3:
-                    # reposition
+                        new_x -= x_delta
+                        foot_positions[i].append(Point(x=new_x, y=self.ground))
+
+                    foot_stages[i] = FootStage.REPOSITION
+
+                # Leg should reposition
+                elif foot_stages[i] == FootStage.REPOSITION:
+                    new_x = foot_positions[i][-1].x
+                    new_y = foot_positions[i][-1].y
                     for step in range(num_steps // 2):
-                        xs[i] += x_delts[i]
-                        ys[i] += y_delts[i] if step < num_steps // 4 else -y_delts[i]
-                        if ys[i] < self.ground:  # clip it so it doesn't go below
-                            ys[i] = self.ground
-                        positions[i].append(Point(x=xs[i], y=ys[i]))
-                    stages[i] += 1
-                elif stages[i] >= 4:
-                    # restart
-                    stages[i] = 0
+                        new_x += x_delta
+                        new_y += y_delta if step < num_steps // 4 else -y_delta
+                        foot_positions[i].append(
+                            Point(
+                                x=new_x, y=new_y if new_y > self.ground else self.ground
+                            )
+                        )
+                        # xs[i] += x_delta[i]
+                        # ys[i] += y_delta[i] if step < num_steps // 4 else -y_delta[i]
+                        # if ys[i] < self.ground:  # clip it so it doesn't go below
+                        # ys[i] = self.ground
+                        # foot_positions[i].append(Point(x=xs[i], y=ys[i]))
+
+                    foot_stages[i] = FootStage.DONE
+
+                # Leg is done, reset it to planted
+                elif foot_stages[i] == FootStage.DONE:
+                    foot_stages[i] = FootStage.PLANTED
 
         initial_pts = self.get_pts_from_gjp()
         # for each leg, we're going to run gjp on it, strip only the points out, and then separate the points into tuples of x,y
@@ -492,10 +527,10 @@ class QuadrupedAnimat:
         # Compute joint angles for each point along the path
         # weird structure bc we want them separated by frames and not by leg
         # again, assuming all lens same
-        for goal_idx in range(len(positions[0])):
+        for goal_idx in range(len(foot_positions[0])):
 
-            for leg_idx, leg in enumerate(self.legs):
-                leg.move_tip(positions[leg_idx][goal_idx], rota_factor)
+            for foot_index, leg in enumerate(self.legs):
+                leg.move_foot(foot_positions[foot_index][goal_idx], rota_factor)
 
             # animate
             all_pts = self.get_pts_from_gjp()
