@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.13.8
+#       jupytext_version: 1.14.4
 #   kernelspec:
-#     display_name: Python 3.10.4 ('ds')
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -253,8 +253,6 @@ def train(
         tuple[nn.Module, list[float]]: model and training losses
     """
 
-    # learning_rate = 1e-3
-
     data_loader = DataLoader(dataset, batch_size, shuffle=True)
     model = GaitModel(layer_sizes, batch_norm, dropout)
 
@@ -273,7 +271,6 @@ def train(
 
 
 # %%
-
 DATA_DIR = Path("KinematicsData/")
 FIGURE_DIR = Path("Figures/")
 MODEL_OUTPUT_DIR = Path("ModelOutputs/")
@@ -283,9 +280,9 @@ df = pd.read_csv(next(DATA_DIR.glob("*_kinematic.csv")))
 
 # We only need the first 28 columns (ignore the touch sensors for output)
 CSV_HEADER = df.columns[:28]
+CSV_HEADER
 
 # %%
-
 datasets = {
     f.stem.split("_")[0]: AngleDataset(f) for f in DATA_DIR.glob("*_kinematic.csv")
 }

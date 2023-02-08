@@ -332,7 +332,9 @@ class QuadrupedAnimat:
         animation = FuncAnimation(fig, update, frames=frames, init_func=init)
         return animation
 
-    def run_gait(self, job_dict: dict):
+    def run_gait(
+        self, job_dict: dict, kinematics_path: Path, animations_path: Path
+    ) -> None:
         """Run the gait according to the gait dict."""
 
         vertical_reach = job_dict["vertical_reach"]
@@ -541,10 +543,8 @@ class QuadrupedAnimat:
         HTML(animation.to_jshtml())
 
         gait_name = job_dict["name"]
-
-        animation.save(str(ANIMATIONS_PATH / f"{gait_name}_procedural.gif"))
-
-        save_data(save_frames_angles, str(DATA_PATH / f"{gait_name}.csv"))
+        animation.save(str(animations_path / f"{gait_name}.gif"))
+        save_data(save_frames_angles, str(kinematics_path / f"{gait_name}.csv"))
 
     def split_pts(self, pts: list[Point]) -> tuple[list[float], list[float]]:
         # helper function, since we can update an actor with all x and y coordinates in this format
@@ -570,8 +570,8 @@ class QuadrupedAnimat:
 
 if __name__ == "__main__":
 
-    ANIMATIONS_PATH = Path("Animations/")
-    DATA_PATH = Path("KinematicsData/")
+    kinematics_path = Path("Kinematics/")
+    animations_path = Path("Animations/")
 
     animat_config_file = "dog_config.json"
     animat = QuadrupedAnimat(file=animat_config_file)
@@ -581,4 +581,4 @@ if __name__ == "__main__":
         gaits = config_file["gaits"]
 
         for gait in gaits:
-            animat.run_gait(gait)
+            animat.run_gait(gait, kinematics_path, animations_path)
