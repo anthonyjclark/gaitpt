@@ -139,7 +139,7 @@
         {
             "name": "trot",
             "horizontal_reach": 0.6,
-            "vertical_reach": 0.4,
+            "vertical_reach": 0.3,
             "rotation_factor": 1.3,
             "foot_order": [
                 [
@@ -156,7 +156,7 @@
         {
             "name": "canter",
             "horizontal_reach": 0.8,
-            "vertical_reach": 1.3,
+            "vertical_reach": 1.0,
             "rotation_factor": 2.0,
             "foot_order": [
                 [
@@ -174,7 +174,7 @@
         {
             "name": "gallop",
             "horizontal_reach": 0.9,
-            "vertical_reach": 1.3,
+            "vertical_reach": 1.0,
             "rotation_factor": 2.0,
             "foot_order": [
                 [

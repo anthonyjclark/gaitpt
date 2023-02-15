@@ -74,18 +74,6 @@ class Point:
         return wrap_to_pi(pt2_angle - pt1_angle)
 
 
-# TODO: remove pose?
-@dataclass(repr=False)
-class Pose:
-    """A pose in 2D space."""
-
-    point: Point
-    angle: float
-
-    def __repr__(self):
-        return f"(({self.point.x}, {self.point.y}), {self.angle})"
-
-
 class Leg:
     """A single leg of the animat."""
 
@@ -125,8 +113,6 @@ class Leg:
         self.ground: float | None = None
 
     def joint_points(self) -> list[Point]:
-        """Compute the position of each joint."""
-
         points = [self.hip_position]
         for i in range(self.num_segments):
             x = points[-1].x + self.lengths[i] * cos(self.angles[i])
@@ -134,38 +120,6 @@ class Leg:
             points.append(Point(x=x, y=y))
 
         return points
-
-    # def global_joint_poses(self) -> list[Pose]:
-    #     """Compute the global position and angle of each joint."""
-
-    #     # Position and angle of hip
-    #     poses = [Pose(self.hip_position, self.angles[0])]
-
-    #     for i in range(self.num_segments):
-    #         parent_angle = poses[-1].angle
-
-    #         x = poses[-1].point.x + self.lengths[i] * cos(parent_angle)
-    #         y = poses[-1].point.y + self.lengths[i] * sin(parent_angle)
-
-    #         # No angle for tip of leg (foot)
-    #         angle = self.angles[i + 1] if i < self.num_segments - 1 else inf
-
-    #         poses.append(Pose(Point(x=x, y=y), angle))
-
-    #     return poses
-
-    # def get_points(self) -> list[Point]:
-    #     return [pose.point for pose in self.global_joint_poses()]
-
-    # # TODO: fix this mess
-    # def get_angles(self) -> list[float]:
-    #     poses = self.global_joint_poses()
-    #     angles = []
-    #     for i, pose in enumerate(poses):
-    #         if i + 1 >= len(poses):
-    #             continue
-    #         angles.append(pose.angle)
-    #     return angles
 
     def foot_position(self) -> Point:
         return deepcopy(self.joint_points()[-1])
