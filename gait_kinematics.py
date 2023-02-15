@@ -421,7 +421,33 @@ class QuadrupedAnimat:
                 elif foot_stage == FootStage.DONE:
                     foot_stages[i] = FootStage.PLANTED
 
-        # Run IK and construct the CSV output file and GIF animation
+        # Joint angles for each foot position
+        # TODO: initial angles
+        angle_data = []
+
+        # Animation is created using line segments
+        # For each time step, for each leg, for each x and y
+        anim_data = [[points_to_xy(points) for points in self.leg_points()]]
+
+        # Run IK for each foot position
+        num_foot_positions = len(foot_positions[0])
+        for pos_index in range(num_foot_positions):
+
+            # Update the legs
+            for foot_index, leg in enumerate(self.legs):
+                leg.move_foot(foot_positions[foot_index][pos_index], rota_factor)
+
+            # Get current angles for the CSV file
+            angle_data.append([leg.get_angles() for leg in self.legs])
+
+            # Get current leg points for the animation
+            anim_data.append([points_to_xy(points) for points in self.leg_points()])
+
+        gait_name = gait_config["name"]
+
+        animation = self.__animate(anim_data)
+        animation.save(str(animations_path / f"{gait_name}.gif"))
+        # HTML(animation.to_jshtml())
 
         # Order of joints in the CSV file (corresponds to simulation)
         hip_knee_ankle = "HKA"
@@ -438,37 +464,6 @@ class QuadrupedAnimat:
         # Add touch sensors
         csv_header += ["FL_Touch", "FR_Touch", "RL_Touch", "RR_Touch"]
 
-        # Leg joints then touch sensors
-        csv_data = []
-
-        # Animation is created using line segments
-        # For each time step, for each leg, for each x and y
-        animation_lines = [[points_to_xy(points) for points in self.leg_points()]]
-
-        # Run IK for each foot position
-        num_foot_positions = len(foot_positions[0])
-        for pos_index in range(num_foot_positions):
-
-            # Update the legs
-            for foot_index, leg in enumerate(self.legs):
-                leg.move_foot(foot_positions[foot_index][pos_index], rota_factor)
-
-            # Get current angles for the CSV
-            joint_angles = [leg.get_angles() for leg in self.legs]
-            # csv_data.append(...)
-
-            # Get current leg points for the animation
-            animation_lines.append(
-                [points_to_xy(points) for points in self.leg_points()]
-            )
-
-        gait_name = gait_config["name"]
-
-        animation = self.__animate(animation_lines)
-        animation.save(str(animations_path / f"{gait_name}.gif"))
-        # HTML(animation.to_jshtml())
-
-        # TODO: save csv data
         # save_data(csv_data, str(kinematics_path / f"{gait_name}_kinematic.csv"))
 
 
@@ -484,6 +479,7 @@ if __name__ == "__main__":
         config_file = json.load(config_file)
         gaits = config_file["gaits"]
 
-        for gait in gaits:
-            print("Running gait:", gait["name"])
-            animat.run_gait(gait, kinematics_path, animations_path)
+    for gait in gaits:
+        print("Running gait:", gait["name"])
+        animat.run_gait(gait, kinematics_path, animations_path)
+        break
