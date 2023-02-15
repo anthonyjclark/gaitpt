@@ -154,7 +154,6 @@ class Leg:
 
         prev_distance_to_goal = inf
 
-        # TODO: switch to relative angles?
         for _ in range(max_steps):
 
             # TODO: do this with better initial conditions?
@@ -253,11 +252,17 @@ class QuadrupedAnimat:
             leg.ground = self.ground
 
     def __animate(
-        # TODO: add type alias for this mess
         self,
         frames: list[list[tuple[list[float], list[float]]]],
     ) -> FuncAnimation:
-        """Create animation of the animat walking."""
+        """Generate an animation given the list of line segment frames.
+
+        Args:
+            frames (list[list[tuple[list[float], list[float]]]]): frames->legs->(xs, ys)
+
+        Returns:
+            FuncAnimation: matplotlib animation object
+        """
 
         fig, ax = plt.subplots()
 
@@ -442,4 +447,3 @@ if __name__ == "__main__":
     for gait in gaits:
         print("Running gait:", gait["name"])
         animat.run_gait(gait, kinematics_path, animations_path)
-        break
