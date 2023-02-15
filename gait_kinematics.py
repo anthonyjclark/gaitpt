@@ -28,8 +28,12 @@ def deg2rad(angle: float) -> float:
     return wrap_to_pi(radians(angle))
 
 
-def interweave(list1: list, list2: list) -> list:
-    return [val for pair in zip(list1, list2) for val in pair]
+def clip(value: float, lo: float, hi: float) -> float:
+    return max(lo, min(value, hi))
+
+
+# def interweave(list1: list, list2: list) -> list:
+#     return [val for pair in zip(list1, list2) for val in pair]
 
 
 def points_to_xy(points: list[Point]) -> tuple[list[float], list[float]]:
@@ -108,58 +112,66 @@ class Leg:
         assert len(limits) == self.num_segments
         assert len(lengths) == self.num_segments
 
-        # Convert from parent-relative to global angles
+        # self.relative_centers = deepcopy(angles)
+        # self.relative_offsets = [0.0] * self.num_segments
+
         self.angles = list(accumulate(angles))
         self.limits = limits
         self.lengths = lengths
 
-        self.max_reach = sum(self.lengths)
+        self.reach = sum(self.lengths)
 
         # Should be set after initial leg creation
         self.ground: float | None = None
 
-    def global_joint_poses(self) -> list[Pose]:
-        """Compute the global position and angle of each joint."""
+    def joint_points(self) -> list[Point]:
+        """Compute the position of each joint."""
 
-        # Position and angle of hip
-        poses = [Pose(self.hip_position, self.angles[0])]
-
+        points = [self.hip_position]
         for i in range(self.num_segments):
-            parent_angle = poses[-1].angle
+            x = points[-1].x + self.lengths[i] * cos(self.angles[i])
+            y = points[-1].y + self.lengths[i] * sin(self.angles[i])
+            points.append(Point(x=x, y=y))
 
-            x = poses[-1].point.x + self.lengths[i] * cos(parent_angle)
-            y = poses[-1].point.y + self.lengths[i] * sin(parent_angle)
+        return points
 
-            # No angle for tip of leg (foot)
-            angle = self.angles[i + 1] if i < self.num_segments - 1 else inf
+    # def global_joint_poses(self) -> list[Pose]:
+    #     """Compute the global position and angle of each joint."""
 
-            poses.append(Pose(Point(x=x, y=y), angle))
+    #     # Position and angle of hip
+    #     poses = [Pose(self.hip_position, self.angles[0])]
 
-        return poses
+    #     for i in range(self.num_segments):
+    #         parent_angle = poses[-1].angle
 
-    def get_points(self) -> list[Point]:
-        return [pose.point for pose in self.global_joint_poses()]
+    #         x = poses[-1].point.x + self.lengths[i] * cos(parent_angle)
+    #         y = poses[-1].point.y + self.lengths[i] * sin(parent_angle)
 
-    # TODO: fix this mess
-    def get_angles(self) -> list[float]:
-        poses = self.global_joint_poses()
-        angles = []
-        for i, pose in enumerate(poses):
-            if i + 1 >= len(poses):
-                continue
-            angles.append(pose.angle)
-        return angles
+    #         # No angle for tip of leg (foot)
+    #         angle = self.angles[i + 1] if i < self.num_segments - 1 else inf
+
+    #         poses.append(Pose(Point(x=x, y=y), angle))
+
+    #     return poses
+
+    # def get_points(self) -> list[Point]:
+    #     return [pose.point for pose in self.global_joint_poses()]
+
+    # # TODO: fix this mess
+    # def get_angles(self) -> list[float]:
+    #     poses = self.global_joint_poses()
+    #     angles = []
+    #     for i, pose in enumerate(poses):
+    #         if i + 1 >= len(poses):
+    #             continue
+    #         angles.append(pose.angle)
+    #     return angles
 
     def foot_position(self) -> Point:
-        return self.global_joint_poses()[-1].point
+        return deepcopy(self.joint_points()[-1])
 
-    def lowest_y(self) -> float:
-        """Get the lowest point of the leg."""
-        return min([pose.point.y for pose in self.global_joint_poses()])
-
-    def raise_hip(self, y_offset: float = 0.1) -> None:
-        """Raise the hip a bit to make it visible in the animation."""
-        self.hip_position = Point(self.hip_position.x, self.hip_position.y + y_offset)
+    def foot_y(self) -> float:
+        return self.foot_position().y
 
     def move_foot(
         self,
@@ -180,7 +192,7 @@ class Leg:
             ValueError: if ground level not set
         """
 
-        if (goal - self.hip_position).norm() > self.max_reach:
+        if (goal - self.hip_position).norm() > self.reach:
             logger.warning(f"The position {goal} is beyond the reach of the leg.")
 
         if self.ground is None:
@@ -191,58 +203,52 @@ class Leg:
         # TODO: switch to relative angles?
         for _ in range(max_steps):
 
-            # Adjustment so that no body parts dip below the ground plane
-            if self.lowest_y() <= self.ground:
+            # TODO: do this with better initial conditions?
+            # # Adjustment so that no body parts dip below the ground plane
+            # if self.lowest_y() <= self.ground:
 
-                delta = abs(self.lowest_y() - self.ground)
+            #     delta = abs(self.lowest_y() - self.ground)
 
-                base_rotation = -0.1
-                rotation = base_rotation * rotation_factor
+            #     base_rotation = -0.1
+            #     rotation = base_rotation * rotation_factor
 
-                for i in range(1, self.num_segments):
+            #     for i in range(1, self.num_segments):
 
-                    parent_angle = 0 if i == 0 else self.angles[i - 1]
+            #         parent_angle = 0 if i == 0 else self.angles[i - 1]
 
-                    lo_limit = self.limits[i][0] + parent_angle
-                    hi_limit = self.limits[i][1] + parent_angle
+            #         lo_limit = self.limits[i][0] + parent_angle
+            #         hi_limit = self.limits[i][1] + parent_angle
 
-                    joint_poses = self.global_joint_poses()
+            #         joint_poses = self.global_joint_poses()
 
-                    new_angle = wrap_to_pi(joint_poses[i].angle + rotation)
+            #         new_angle = wrap_to_pi(joint_poses[i].angle + rotation)
 
-                    # Compute the new angle and clip within specified limits
-                    # TODO: remove for now...
-                    # self.angles[i] = clip(new_angle, lo_limit, hi_limit)
+            #         # Compute the new angle and clip within specified limits
+            #         # TODO: remove for now...
+            #         # self.angles[i] = clip(new_angle, lo_limit, hi_limit)
 
-                    # TODO: unexplained
-                    rotation *= -1
+            #         # TODO: unexplained
+            #         rotation *= -1
 
             # IK: start at the ankle and work to the hip (no joint at foot)
-            for i in range(self.num_segments - 1, -1, -1):
+            for j in range(self.num_segments - 1, -1, -1):
 
-                parent_angle = 0 if i == 0 else self.angles[i - 1]
+                parent_joint_angle = 0 if j == 0 else self.angles[j - 1]
+                joint_lo = self.limits[j][0] + parent_joint_angle
+                joint_hi = self.limits[j][1] + parent_joint_angle
 
-                lo_limit = self.limits[i][0] + parent_angle
-                hi_limit = self.limits[i][1] + parent_angle
+                joint_points = self.joint_points()
+                joint_to_foot = joint_points[-1] - joint_points[j]
+                joint_to_goal = goal - joint_points[j]
 
-                joint_poses = self.global_joint_poses()
-
-                joint_to_foot = joint_poses[-1].point - joint_poses[i].point
-                joint_to_goal = goal - joint_poses[i].point
-
-                rotation_amount = Point.angle_between(joint_to_foot, joint_to_goal)
-
-                # FIXME: Something is wrong here... rotation_amount is in degrees...
-                # Just get rid of conversion?
-                new_angle = wrap_to_pi(joint_poses[i].angle + rotation_amount)
+                # New joint angle will place the foot as close as possible to the goal
+                displacement_to_goal = Point.angle_between(joint_to_foot, joint_to_goal)
+                new_angle = wrap_to_pi(self.angles[j] + displacement_to_goal)
 
                 # Compute the new angle and clip within specified limits
-                # TODO: remove for now...
-                # self.angles[i] = clip(new_angle, lo_limit, hi_limit)
+                self.angles[j] = wrap_to_pi(clip(new_angle, joint_lo, joint_hi))
 
-                self.angles[i] = new_angle
-
-            # Check if close enough to goal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               l
+            # Check if close enough to goal
             foot_distance_to_goal = abs((goal - self.foot_position()).norm())
             if foot_distance_to_goal < tolerance:
                 break
@@ -288,7 +294,7 @@ class QuadrupedAnimat:
             self.legs.reverse()
 
         # Location of ground below "hip_y" is unknown until we have posed the legs
-        self.ground = self.legs[0].global_joint_poses()[-1].point.y
+        self.ground = self.legs[0].joint_points()[-1].y
         for leg in self.legs:
             leg.ground = self.ground
 
@@ -330,7 +336,7 @@ class QuadrupedAnimat:
 
     def leg_points(self) -> list[list[Point]]:
         """Return the points of each leg."""
-        return [leg.get_points() for leg in self.legs]
+        return [leg.joint_points() for leg in self.legs]
 
     def run_gait(
         self, gait_config: dict, kinematics_path: Path, animations_path: Path
@@ -438,7 +444,7 @@ class QuadrupedAnimat:
                 leg.move_foot(foot_positions[foot_index][pos_index], rota_factor)
 
             # Get current angles for the CSV file
-            angle_data.append([leg.get_angles() for leg in self.legs])
+            # angle_data.append([leg.get_angles() for leg in self.legs])
 
             # Get current leg points for the animation
             anim_data.append([points_to_xy(points) for points in self.leg_points()])
