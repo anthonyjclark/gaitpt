@@ -4,9 +4,10 @@ from __future__ import annotations
 import csv
 import json
 
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-from itertools import accumulate
+from itertools import accumulate, product
 from math import atan2, cos, inf, pi, radians, sin, sqrt
 from typing import Iterable
 
@@ -31,23 +32,11 @@ def interweave(list1: list, list2: list) -> list:
     return [val for pair in zip(list1, list2) for val in pair]
 
 
-# TODO: fix this mess
-def save_data(data: list[list[list[Pose]]], filename: str):
-    """Write pose data to the a CSV file."""
-
-    with open(filename, "w", newline="") as csv_file:
-        writer = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
-
-        data = np.asarray(data)
-        data = data.flatten()
-
-        one_row = []
-        for num in data:
-            if len(one_row) < 32:
-                one_row.append(num)
-            else:
-                writer.writerow(one_row)
-                one_row = [num]
+def points_to_xy(points: list[Point]) -> tuple[list[float], list[float]]:
+    """Convert a list of points to a list of line segments."""
+    x = [point.x for point in points]
+    y = [point.y for point in points]
+    return x, y
 
 
 class FootStage(Enum):
@@ -81,6 +70,7 @@ class Point:
         return wrap_to_pi(pt2_angle - pt1_angle)
 
 
+# TODO: remove pose?
 @dataclass(repr=False)
 class Pose:
     """A pose in 2D space."""
@@ -146,6 +136,9 @@ class Leg:
             poses.append(Pose(Point(x=x, y=y), angle))
 
         return poses
+
+    def get_points(self) -> list[Point]:
+        return [pose.point for pose in self.global_joint_poses()]
 
     # TODO: fix this mess
     def get_angles(self) -> list[float]:
@@ -335,22 +328,24 @@ class QuadrupedAnimat:
         animation = FuncAnimation(fig, update, frames=frames, init_func=init)
         return animation
 
+    def leg_points(self) -> list[list[Point]]:
+        """Return the points of each leg."""
+        return [leg.get_points() for leg in self.legs]
+
     def run_gait(
-        self, job_dict: dict, kinematics_path: Path, animations_path: Path
+        self, gait_config: dict, kinematics_path: Path, animations_path: Path
     ) -> None:
         """Run the gait according to the gait dict."""
 
-        horz_reach: float = job_dict["horizontal_reach"]
-        vert_reach: float = job_dict["vertical_reach"]
+        horz_reach: float = gait_config["horizontal_reach"]
+        vert_reach: float = gait_config["vertical_reach"]
 
-        foot_order: list[list[int]] = job_dict["foot_order"]
+        foot_order: list[list[int]] = gait_config["foot_order"]
 
-        rota_factor: float = job_dict["rotation_factor"]
+        rota_factor: float = gait_config["rotation_factor"]
 
-        # Initial position given by current leg positions should be a list[list[Point]]
+        # Initial position given by initial leg positions should be a list[list[Point]]
         foot_positions = [[leg.foot_position()] for leg in self.legs]
-        # xs = [pos[0].x for pos in positions]
-        # ys = [pos[0].y for pos in positions]
 
         # Number of positions along the gait
         num_steps = 16
@@ -359,12 +354,13 @@ class QuadrupedAnimat:
         # Vertical motion is up then down
         y_delta = vert_reach / (num_steps // 2)
 
-        # 0 = staging, 1 = forward, 2 = back, 3 = reposition, 4 = done
+        # All feet start in the planted stage
         foot_stages = [FootStage.PLANTED] * len(self.legs)
 
         num_foot_actions = len(foot_order)
         foot_action_index = 0
 
+        # Manually compute the path of each foot (no kinematics yet)
         while any(stage != FootStage.DONE for stage in foot_stages):
 
             if foot_action_index < num_foot_actions:
@@ -383,220 +379,97 @@ class QuadrupedAnimat:
                 foot_action_index += 1
 
             # Add new positions for each leg
-            # TODO: change to foot-index
-            for i, leg in enumerate(self.legs):
+            for i in range(len(self.legs)):
+
+                foot_stage = foot_stages[i]
+                foot_pos = deepcopy(foot_positions[i][-1])
 
                 # No need to move, just copy the current position
-                if (
-                    foot_stages[i] == FootStage.PLANTED
-                    or foot_stages[i] == FootStage.DONE
-                ):
-                    foot_positions[i] += [
-                        foot_positions[i][-1] for _ in range(num_steps)
-                    ]
+                if foot_stage == FootStage.PLANTED or foot_stage == FootStage.DONE:
+                    foot_positions[i] += [foot_pos for _ in range(num_steps)]
 
                 # Leg should move forward
-                elif foot_stages[i] == FootStage.FORWARD:
-                    new_x = foot_positions[i][-1].x
-                    new_y = foot_positions[i][-1].y
+                elif foot_stage == FootStage.FORWARD:
                     for step in range(num_steps):
-                        new_x += x_delta
-                        new_y += y_delta if step < num_steps // 2 else -y_delta
-
-                        foot_positions[i].append(Point(x=new_x, y=new_y))
-
-                        # xs[i] += x_delta[i]
-                        # ys[i] += y_delta[i] if step < num_steps // 2 else -y_delta[i]
-                        # if step > num_steps // 2 and ys[i] < self.ground:
-                        # foot_positions[i].append(Point(x=xs[i], y=self.ground))
-                        # else:
-                        # foot_positions[i].append(Point(x=xs[i], y=ys[i]))
+                        foot_pos.x += x_delta
+                        foot_pos.y += y_delta if step < num_steps // 2 else -y_delta
+                        foot_positions[i].append(Point(x=foot_pos.x, y=foot_pos.y))
 
                     foot_stages[i] = FootStage.BACKWARD
 
-                # Leg should move backward
-                elif foot_stages[i] == FootStage.BACKWARD:
-                    # TODO: list comprehension?
-                    new_x = foot_positions[i][-1].x
+                # Leg should move backward on the ground
+                elif foot_stage == FootStage.BACKWARD:
+                    # Move back to neutral, and then back again halfway
                     for step in range(int(num_steps * 1.5)):
-                        new_x -= x_delta
-                        foot_positions[i].append(Point(x=new_x, y=self.ground))
+                        foot_pos.x -= x_delta
+                        foot_positions[i].append(Point(x=foot_pos.x, y=self.ground))
 
                     foot_stages[i] = FootStage.REPOSITION
 
                 # Leg should reposition
-                elif foot_stages[i] == FootStage.REPOSITION:
-                    new_x = foot_positions[i][-1].x
-                    new_y = foot_positions[i][-1].y
+                elif foot_stage == FootStage.REPOSITION:
                     for step in range(num_steps // 2):
-                        new_x += x_delta
-                        new_y += y_delta if step < num_steps // 4 else -y_delta
-                        foot_positions[i].append(
-                            Point(
-                                x=new_x, y=new_y if new_y > self.ground else self.ground
-                            )
-                        )
-                        # xs[i] += x_delta[i]
-                        # ys[i] += y_delta[i] if step < num_steps // 4 else -y_delta[i]
-                        # if ys[i] < self.ground:  # clip it so it doesn't go below
-                        # ys[i] = self.ground
-                        # foot_positions[i].append(Point(x=xs[i], y=ys[i]))
+                        foot_pos.x += x_delta
+                        foot_pos.y += y_delta if step < num_steps // 4 else -y_delta
+
+                        new_y = foot_pos.y if foot_pos.y > self.ground else self.ground
+                        foot_positions[i].append(Point(x=foot_pos.x, y=new_y))
 
                     foot_stages[i] = FootStage.DONE
 
                 # Leg is done, reset it to planted
-                elif foot_stages[i] == FootStage.DONE:
+                elif foot_stage == FootStage.DONE:
                     foot_stages[i] = FootStage.PLANTED
 
-        initial_pts = self.get_pts_from_gjp()
-        # for each leg, we're going to run gjp on it, strip only the points out, and then separate the points into tuples of x,y
-        anim_frames = [
-            [
-                self.split_pts(initial_pts[0]),
-                self.split_pts(initial_pts[1]),
-                self.split_pts(initial_pts[2]),
-                self.split_pts(initial_pts[3]),
-            ]
-        ]  # each frame contains info for one step of all 4 legs
+        # Run IK and construct the CSV output file and GIF animation
 
-        save_frames_angles = [
-            [
-                "FL A1 DF 1",
-                "FL A1 DF 2",
-                "FL A2 DF 1",
-                "FL A2 DF 2",
-                "FL A3 DF 1",
-                "FL A3 DF 2",
-                "FR A1 DF 1",
-                "FR A1 DF 2",
-                "FR A2 DF 1",
-                "FR A2 DF 2",
-                "FR A3 DF 1",
-                "FR A3 DF 2",
-                "BL A1 DF 1",
-                "BL A1 DF 2",
-                "BL A2 DF 1",
-                "BL A2 DF 2",
-                "BL A3 DF 1",
-                "BL A3 DF 2",
-                "BR A1 DF 1",
-                "BR A1 DF 2",
-                "BR A2 DF 1",
-                "BR A2 DF 2",
-                "BR A3 DF 1",
-                "BR A3 DF 2",
-                "SP A1 DF 1",
-                "SP A1 DF 2",
-                "SP A2 DF 1",
-                "SP A2 DF 2",
-                "T FL",
-                "T FR",
-                "T BL",
-                "T BR",
-            ]
+        # Order of joints in the CSV file (corresponds to simulation)
+        hip_knee_ankle = "HKA"
+        front_rear = "FR"
+        left_right = "LR"
+        dof = "12"
+
+        # FLH_1, FLH_2, etc.
+        csv_header = [
+            f"{fr}{lr}{hka}_{dof}"
+            for hka, fr, lr, dof in product(hip_knee_ankle, front_rear, left_right, dof)
         ]
 
-        torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
+        # Add touch sensors
+        csv_header += ["FL_Touch", "FR_Touch", "RL_Touch", "RR_Touch"]
 
-        touch_sensors = [
-            1.0 if (leg.lowest_y() <= self.ground) else 0.0 for leg in self.legs
-        ]
+        # Leg joints then touch sensors
+        csv_data = []
 
-        # TODO: get this section into a fx, since it gets re-used /*
-        angle_frame = []
-        touch_sensors = []
+        # Animation is created using line segments
+        # For each time step, for each leg, for each x and y
+        animation_lines = [[points_to_xy(points) for points in self.leg_points()]]
 
-        for leg in self.legs:
-            # frame.append(leg.global_joint_poses()[1])
-            angles = leg.get_angles()
-            angles = np.array(interweave(angles, np.zeros(len(angles)))).flatten()
-            angle_frame = np.append(angle_frame, angles)
+        # Run IK for each foot position
+        num_foot_positions = len(foot_positions[0])
+        for pos_index in range(num_foot_positions):
 
-            if leg.lowest_y() <= self.ground:
-                touch_sensors.append(1.0)
-            else:
-                touch_sensors.append(0.0)
-
-        angle_frame = np.append(angle_frame, torso)
-        angle_frame = np.append(angle_frame, touch_sensors)
-
-        # save_frames.append(frame)
-        save_frames_angles.append(angle_frame)
-        # */
-
-        # Compute joint angles for each point along the path
-        # weird structure bc we want them separated by frames and not by leg
-        # again, assuming all lens same
-        for goal_idx in range(len(foot_positions[0])):
-
+            # Update the legs
             for foot_index, leg in enumerate(self.legs):
-                leg.move_foot(foot_positions[foot_index][goal_idx], rota_factor)
+                leg.move_foot(foot_positions[foot_index][pos_index], rota_factor)
 
-            # animate
-            all_pts = self.get_pts_from_gjp()
+            # Get current angles for the CSV
+            joint_angles = [leg.get_angles() for leg in self.legs]
+            # csv_data.append(...)
 
-            anim_frames.append(
-                [
-                    self.split_pts(all_pts[0]),
-                    self.split_pts(all_pts[1]),
-                    self.split_pts(all_pts[2]),
-                    self.split_pts(all_pts[3]),
-                ]
+            # Get current leg points for the animation
+            animation_lines.append(
+                [points_to_xy(points) for points in self.leg_points()]
             )
 
-            # save results
-            # if we're not animating, we need the full poses
-            # frame = []
-            angle_frame = []
-            touch_sensors = []
-            torso = [0.0, 0.0, 0.0, 0.0]  # two connections, 2 DOF each
+        gait_name = gait_config["name"]
 
-            for leg in self.legs:
-                # frame.append(leg.global_joint_poses()[1])
-                angles = leg.get_angles()
-                angles = np.array(interweave(angles, np.zeros(len(angles)))).flatten()
-                angle_frame = np.append(angle_frame, angles)
-
-                if leg.lowest_y() <= self.ground + 0.05:
-                    touch_sensors.append(1.0)
-                else:
-                    touch_sensors.append(0.0)
-
-            angle_frame = np.append(angle_frame, torso)
-            angle_frame = np.append(angle_frame, touch_sensors)
-
-            # save_frames.append(frame)
-            save_frames_angles = np.append(save_frames_angles, angle_frame)
-
-        animation = self.__animate(anim_frames)
-        HTML(animation.to_jshtml())
-
-        gait_name = job_dict["name"]
+        animation = self.__animate(animation_lines)
         animation.save(str(animations_path / f"{gait_name}.gif"))
-        save_data(
-            save_frames_angles, str(kinematics_path / f"{gait_name}_kinematic.csv")
-        )
+        # HTML(animation.to_jshtml())
 
-    def split_pts(self, pts: list[Point]) -> tuple[list[float], list[float]]:
-        # helper function, since we can update an actor with all x and y coordinates in this format
-        xs = []
-        ys = []
-        for pt in pts:
-            xs.append(pt.x)
-            ys.append(pt.y)
-
-        return (xs, ys)
-
-    def get_pts_from_gjp(self) -> list[list[Point]]:
-        # runs global_joint_poses on each leg in self.legs and returns a list of points for each leg
-        all_pts = []
-
-        for leg in self.legs:
-
-            leg_pts = [pose.point for pose in leg.global_joint_poses()]
-            all_pts.append(leg_pts)
-
-        return all_pts
+        # TODO: save csv data
+        # save_data(csv_data, str(kinematics_path / f"{gait_name}_kinematic.csv"))
 
 
 if __name__ == "__main__":
