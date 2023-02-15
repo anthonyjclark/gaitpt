@@ -119,7 +119,7 @@
         {
             "name": "walk",
             "horizontal_reach": 0.4,
-            "vertical_reach": 0.4,
+            "vertical_reach": 0.3,
             "rotation_factor": 1.0,
             "foot_order": [
                 [
