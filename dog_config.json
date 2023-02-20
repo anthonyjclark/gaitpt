@@ -36,7 +36,18 @@
             "name": "walk", 
             "horizontal_reach": 0.3, 
             "vertical_reach": 0.2, 
-            "foot_order": [ [1], [3], [0], [2] ]
+            "gait_startup": {
+                "front_left" : ["lift"   , "step"   ], 
+                "front_right": ["planted", "thrust" ], 
+                "rear_left"  : ["planted", "planted"], 
+                "rear_right" : ["planted", "lift"   ]  
+            }, 
+            "gait_cycle": {
+                "front_left" : ["support", "thrust" , "swing"  , "step"   ], 
+                "front_right": ["swing"  , "step"   , "support", "thrust" ], 
+                "rear_left"  : ["thrust" , "swing"  , "step"   , "support"], 
+                "rear_right" : ["step"   , "support", "thrust" , "swing"  ]  
+            }
         }, 
         {
             "name": "trot", 

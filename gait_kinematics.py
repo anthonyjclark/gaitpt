@@ -17,7 +17,8 @@ from math import atan2, cos, inf, pi, radians, sin, sqrt
 from typing import Iterable
 
 import matplotlib.pyplot as plt
-from IPython.display import HTML
+
+# from IPython.display import HTML
 from loguru import logger
 from matplotlib.animation import FuncAnimation
 
@@ -48,11 +49,12 @@ def points_to_xy(points: list[Point]) -> tuple[list[float], list[float]]:
 
 
 class FootStage(Enum):
-    STANDING = 0
-    INITIATE = 1
-    BACKWARD = 2
-    FORWARD = 3
-    DONE = 4
+    PLANTED = 0
+    LIFT = 1
+    SUPPORT = 2
+    THRUST = 3
+    SWING = 4
+    STEP = 5
 
 
 @dataclass
@@ -273,29 +275,38 @@ class QuadrupedAnimat:
         return [leg.joint_points() for leg in self.legs]
 
     def run_gait(
-        self, gait_config: dict, kinematics_path: Path, animations_path: Path
+        self,
+        gait_config: dict,
+        kinematics_path: Path,
+        animations_path: Path,
+        num_cycles: int = 2,
+        num_steps: int = 16,
     ) -> None:
         """Run the gait according to the gait dict."""
 
         horz_reach: float = gait_config["horizontal_reach"]
         vert_reach: float = gait_config["vertical_reach"]
-        foot_order: list[list[int]] = gait_config["foot_order"]
+        gait_startup: dict[str, list[str]] = gait_config["gait_startup"]
+        gait_cycle: dict[str, list[str]] = gait_config["gait_cycle"]
 
-        # Initial position given by initial leg positions should be a list[list[Point]]
-        foot_positions = [[leg.foot_position()] for leg in self.legs]
-
-        # Number of positions along the gait
-        num_steps = 16
+        # Amount to move in horizontal direction each step
         x_delta = horz_reach / num_steps
+        x_delta_half = x_delta / 2
 
         # Vertical motion is up then down
         y_delta = vert_reach / (num_steps // 2)
+        y_delta_half = y_delta / 2
 
         # All feet start in the standing stage
-        foot_stages = [FootStage.STANDING] * len(self.legs)
+        leg_names = ["front_left", "front_right", "rear_left", "rear_right"]
+        leg_stages = {leg: gait_startup[leg] for leg in gait_startup}
+        leg_stages = {**leg_stages, **{leg: gait_cycle[leg] for leg in gait_cycle}}
 
-        num_foot_actions = len(foot_order)
-        foot_action_index = 0
+        print(leg_stages)
+        raise SystemExit
+
+        # Initial position given by initial leg positions; should be a list[list[Point]]
+        foot_positions = [[leg.foot_position()] for leg in self.legs]
 
         # Manually compute the path of each foot (no kinematics yet)
         while any(stage != FootStage.DONE for stage in foot_stages):
