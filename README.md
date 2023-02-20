@@ -55,3 +55,6 @@ Pre-training gaits for genetic algorithms
 	4. Coordinates animation (updates each leg)
 		+ axis
 		+ matplotlib stuff
+
+
+Gaits are symmetric as opposed to differing swing and stance phases.
