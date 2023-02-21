@@ -1,35 +1,29 @@
 {
     "animat": {
         "name": "Dog", 
-        "front_hip_x": 0, 
-        "back_hip_x": -0.5, 
-        "hip_y": 0, 
-        "legs": [
-            {
-                "angles": [300, -80, 80], 
-                "limits": [ [270, 340], [-160, 20], [20, 160] ], 
-                "lengths": [0.26, 0.42, 0.32], 
-                "hip": "front"
+        "length": 0.5, 
+        "legs": {
+            "front_left": {
+                "angles" : [ 300       , -80       , 80        ], 
+                "limits" : [ [270, 340], [-160, 20], [20, 160] ], 
+                "lengths": [ 0.26      , 0.42      , 0.32      ]  
             }, 
-            {
-                "angles": [300, -80, 80], 
-                "limits": [ [270, 340], [-160, 20], [20, 160] ], 
-                "lengths": [0.26, 0.42, 0.32], 
-                "hip": "front"
+            "front_right": {
+                "angles" : [ 300       , -80       , 80        ], 
+                "limits" : [ [270, 340], [-160, 20], [20, 160] ], 
+                "lengths": [ 0.26      , 0.42      , 0.32      ]  
             }, 
-            {
-                "angles": [300, -80, 80], 
-                "limits": [ [270, 340], [-160, 20], [20, 160] ], 
-                "lengths": [0.41, 0.42, 0.17], 
-                "hip": "back"
+            "rear_left": {
+                "angles" : [ 300       , -80       , 80        ], 
+                "limits" : [ [270, 340], [-160, 20], [20, 160] ], 
+                "lengths": [ 0.41      , 0.42      , 0.17      ]  
             }, 
-            {
-                "angles": [300, -80, 80], 
-                "limits": [ [270, 340], [-160, 20], [20, 160] ], 
-                "lengths": [0.41, 0.42, 0.17], 
-                "hip": "back"
+            "rear_right": {
+                "angles" : [ 300       , -80       , 80        ], 
+                "limits" : [ [270, 340], [-160, 20], [20, 160] ], 
+                "lengths": [ 0.41      , 0.42      , 0.17      ]  
             }
-        ]
+        }
     }, 
     "gaits": [
         {
@@ -37,35 +31,17 @@
             "horizontal_reach": 0.3, 
             "vertical_reach": 0.2, 
             "gait_startup": {
-                "front_left" : ["lift"   , "step"   ], 
-                "front_right": ["planted", "thrust" ], 
-                "rear_left"  : ["planted", "planted"], 
-                "rear_right" : ["planted", "lift"   ]  
+                "front_left" : ["LIFT"   , "STEP"   ], 
+                "front_right": ["PLANTED", "THRUST" ], 
+                "rear_left"  : ["PLANTED", "PLANTED"], 
+                "rear_right" : ["PLANTED", "LIFT"   ]  
             }, 
             "gait_cycle": {
-                "front_left" : ["support", "thrust" , "swing"  , "step"   ], 
-                "front_right": ["swing"  , "step"   , "support", "thrust" ], 
-                "rear_left"  : ["thrust" , "swing"  , "step"   , "support"], 
-                "rear_right" : ["step"   , "support", "thrust" , "swing"  ]  
+                "front_left" : ["SUPPORT", "THRUST" , "SWING"  , "STEP"   ], 
+                "front_right": ["SWING"  , "STEP"   , "SUPPORT", "THRUST" ], 
+                "rear_left"  : ["THRUST" , "SWING"  , "STEP"   , "SUPPORT"], 
+                "rear_right" : ["STEP"   , "SUPPORT", "THRUST" , "SWING"  ]  
             }
-        }, 
-        {
-            "name": "trot", 
-            "horizontal_reach": 0.6, 
-            "vertical_reach": 0.3, 
-            "foot_order": [ [1, 2], [], [0, 3] ]
-        }, 
-        {
-            "name": "canter", 
-            "horizontal_reach": 0.6, 
-            "vertical_reach": 0.3, 
-            "foot_order": [ [3], [0, 2], [1] ]
-        }, 
-        {
-            "name": "gallop", 
-            "horizontal_reach": 0.6, 
-            "vertical_reach": 0.3, 
-            "foot_order": [ [0, 3], [1, 2] ]
         }
     ]
 }
