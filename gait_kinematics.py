@@ -20,6 +20,15 @@ from matplotlib.animation import FuncAnimation
 from pathlib import Path
 
 
+# TODO: remove
+import sys
+from math import degrees
+
+
+def join_floats(vals: Iterable[float]) -> str:
+    return ",".join([f"{val:.3f}" for val in vals])
+
+
 def wrap_to_pi(angle: float) -> float:
     return (angle + pi) % (2 * pi) - pi
 
@@ -32,8 +41,8 @@ def clip(value: float, lo: float, hi: float) -> float:
     return max(lo, min(value, hi))
 
 
-# def interweave(list1: list, list2: list) -> list:
-#     return [val for pair in zip(list1, list2) for val in pair]
+def interleave_with(vals: list[float], val: float) -> list[float]:
+    return [val for pair in zip([val] * len(vals), vals) for val in pair]
 
 
 def points_to_xy(points: list[Point]) -> tuple[list[float], list[float]]:
@@ -101,9 +110,7 @@ class Leg:
         assert len(limits) == self.num_segments
         assert len(lengths) == self.num_segments
 
-        # self.relative_centers = deepcopy(angles)
-        # self.relative_offsets = [0.0] * self.num_segments
-
+        self.centers = deepcopy(angles)
         self.angles = list(accumulate(angles))
         self.limits = limits
         self.lengths = lengths
@@ -125,8 +132,20 @@ class Leg:
     def foot_position(self) -> Point:
         return deepcopy(self.joint_points()[-1])
 
-    def foot_y(self) -> float:
-        return self.foot_position().y
+    def foot_is_touching_ground(self, epsilon=0.05) -> float:
+        """Return 1.0 if foot is touching ground, 0.0 otherwise."""
+        ground_level = self.ground + epsilon if self.ground else 0.0
+        return 1.0 if self.foot_position().y <= ground_level else 0.0
+
+    def angle_offsets(self) -> list[float]:
+        #  Hip: angle - (  0    + center)
+        # !Hip: angle - (parent + center)
+        return [
+            wrap_to_pi(angle - (parent + center))
+            for angle, parent, center in zip(
+                self.angles, [0] + self.angles, self.centers
+            )
+        ]
 
     def move_foot(
         self,
@@ -204,7 +223,7 @@ class QuadrupedAnimat:
             animat = json.load(json_file)["animat"]
 
         front_hip_pos = Point(0.0, 0.0)
-        back_hip_pos = Point(-animat["length"], 0.0)
+        rear_hip_pos = Point(-animat["length"], 0.0)
 
         self.legs: dict[str, Leg] = {}
 
@@ -213,7 +232,7 @@ class QuadrupedAnimat:
             angles = [deg2rad(angle) for angle in leg_dict["angles"]]
             limits = [(deg2rad(lm[0]), deg2rad(lm[1])) for lm in leg_dict["limits"]]
             lengths = leg_dict["lengths"]
-            hip_pos = front_hip_pos if leg_name.startswith("front") else back_hip_pos
+            hip_pos = front_hip_pos if leg_name.startswith("front") else rear_hip_pos
 
             self.legs[leg_name] = Leg(angles, limits, lengths, hip_pos)
 
@@ -234,6 +253,8 @@ class QuadrupedAnimat:
         Returns:
             FuncAnimation: matplotlib animation object
         """
+
+        # TODO: downsample frames https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.resample.html
 
         fig, ax = plt.subplots()
 
@@ -273,17 +294,25 @@ class QuadrupedAnimat:
         animation = FuncAnimation(fig, update, frames=frames, init_func=init)
         return animation
 
-    def leg_points(self) -> list[list[Point]]:
+    def leg_points(self, order: list[str]) -> list[list[Point]]:
         """Return the points of each leg."""
-        return [self.legs[leg_name].joint_points() for leg_name in self.legs]
+        return [self.legs[leg_name].joint_points() for leg_name in order]
+
+    def leg_angle_offsets(self, order: list[str]) -> list[list[float]]:
+        """Return the angles of each leg relative to parent joints."""
+        return [self.legs[leg_name].angle_offsets() for leg_name in order]
+
+    def foot_touches(self, order: list[str]) -> list[float]:
+        """Return foot touches for each leg as a float."""
+        return [self.legs[leg_name].foot_is_touching_ground() for leg_name in order]
 
     def run_gait(
         self,
         gait_config: dict,
         kinematics_path: Path,
         animations_path: Path,
-        num_cycles: int = 2,
-        num_steps: int = 6,
+        num_cycles: int,
+        num_steps: int,
     ) -> None:
         """Run the gait according to the gait dict."""
 
@@ -315,13 +344,13 @@ class QuadrupedAnimat:
             for leg_name in leg_stages:
 
                 # Convert string to FootStage enum
-                # TODO: does i match leg_name?
                 leg_stage = LegStage[leg_stages[leg_name][stage_index]]
                 foot_pos = deepcopy(foot_positions[leg_name][-1])
 
                 # New positions of the foot for this leg for this stage
                 new_positions = []
 
+                # TODO: these all do the same thing, just set a delta in the cases
                 match leg_stage:
                     # No movement
                     case LegStage.PLANTED:
@@ -363,13 +392,16 @@ class QuadrupedAnimat:
 
                 foot_positions[leg_name] += new_positions
 
-        # Joint angles for each foot position
-        # TODO: initial angles
-        angle_data = []
+        # Leg order in simulation
+        leg_order = ["front_left", "front_right", "rear_left", "rear_right"]
+
+        # Joint angles and touch sensors for each foot position
+        angle_data = [self.leg_angle_offsets(leg_order)]
+        touch_data = [self.foot_touches(leg_order)]
 
         # Animation is created using line segments
         # For each time step, for each leg, for each x and y
-        anim_data = [[points_to_xy(points) for points in self.leg_points()]]
+        anim_data = [[points_to_xy(points) for points in self.leg_points(leg_order)]]
 
         # Run IK for each foot position
         num_foot_positions = len(foot_positions["front_left"])
@@ -380,10 +412,23 @@ class QuadrupedAnimat:
                 leg.move_foot(foot_positions[leg_name][pos_index])
 
             # Get current angles for the CSV file
-            # angle_data.append([leg.get_angles() for leg in self.legs])
+            angle_data.append(self.leg_angle_offsets(leg_order))
+            touch_data.append(self.foot_touches(leg_order))
 
             # Get current leg points for the animation
-            anim_data.append([points_to_xy(points) for points in self.leg_points()])
+            anim_data.append([points_to_xy(pts) for pts in self.leg_points(leg_order)])
+
+            # print(
+            #     angle_data[-1][0][0],
+            #     self.legs["front_left"].angles[0],
+            #     self.legs["front_left"].centers[0],
+            #     self.legs["front_left"].centers[0] - self.legs["front_left"].angles[0],
+            # )
+
+            # absolute = list(map(degrees, self.legs["front_left"].angles))
+            # relative = list(map(degrees, self.legs["front_left"].angle_offsets()))
+            # footy = self.legs["front_left"].foot_position().y
+            # print(join_floats(absolute + relative + [footy]), file=sys.stderr)
 
         gait_name = gait_config["name"]
 
@@ -406,8 +451,29 @@ class QuadrupedAnimat:
         # Add touch sensors
         csv_header += ["FL_Touch", "FR_Touch", "RL_Touch", "RR_Touch"]
 
-        # save_data(csv_data, str(kinematics_path / f"{gait_name}_kinematic.csv"))
+        csv_filename = f"{gait_name}_kinematic_new.csv"
+        with open(csv_filename, "w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(csv_header)
 
+            for angles, touches in zip(angle_data, touch_data):
+
+                row: list[float] = []
+
+                # Write joint angles and take into account the simulation order and DOFs
+                hips = [leg_angles[0] for leg_angles in angles]
+                knees = [leg_angles[1] for leg_angles in angles]
+                ankles = [leg_angles[2] for leg_angles in angles]
+                # row += interleave_with(hips + knees + ankles, 0.0)
+                row += interleave_with(list(map(degrees, hips + knees + ankles)), 0.0)
+
+                # Write touch sensors
+                row += touches
+
+                writer.writerow(row)
+
+
+# FLH_1,FLH_2,FRH_1,FRH_2,RLH_1,RLH_2,RRH_1,RRH_2,FLK_1,FLK_2,FRK_1,FRK_2,RLK_1,RLK_2,RRK_1,RRK_2,FLA_1,FLA_2,FRA_1,FRA_2,RLA_1,RLA_2,RRA_1,RRA_2
 
 if __name__ == "__main__":
 
@@ -421,7 +487,11 @@ if __name__ == "__main__":
         config_file = json.load(config_file)
         gaits = config_file["gaits"]
 
+    num_gait_cyles = 3
+    num_foot_steps = 20
+
     for gait in gaits:
         print("Running gait:", gait["name"])
-        animat.run_gait(gait, kinematics_path, animations_path)
-        break
+        animat.run_gait(
+            gait, kinematics_path, animations_path, num_gait_cyles, num_foot_steps
+        )
