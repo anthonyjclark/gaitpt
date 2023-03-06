@@ -14,33 +14,12 @@
 # ---
 
 # %%
-class AddGaussianNoise(object):
-    def __init__(self, mean=0., std=1.):
-        self.std = std
-        self.mean = mean
-        
-    def __call__(self, tensor):
-        return tensor + torch.randn(tensor.size()) * self.std + self.mean
-    
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
-
-transform=transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,)),
-    AddGaussianNoise(0., 1.)
-])
-
-# %%
-from math import inf
-from pathlib import Path
 import csv
+from pathlib import Path
 
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-
-from sklearn import preprocessing
 
 from torch import optim
 from torch.utils.data import DataLoader
@@ -48,12 +27,24 @@ from torch.utils.data.dataset import Dataset
 import torch
 import torch.nn as nn
 
+from torchsummary import summary
+
 # %% [markdown]
-# ## Define a pytorch Dataset object to contain the training and testing data
-#
-# Pytorch handles data shuffling and batch loading, as long as the user provides a "Dataset" class. This class is just a
-# wrapper for your data that casts the data into pytorch tensor format and returns slices of the data. In this case, our
-# data is in numpy format, which conveniently pytorch has a method for converting to their native format.
+# # Define a pytorch Dataset
+
+# %%
+class GaussianNoiseTransform(object):
+    """Add gaussian noise to a tensor."""
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+        
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+    
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
 
 # %%
 class AngleDataset(Dataset):
@@ -64,145 +55,35 @@ class AngleDataset(Dataset):
             csv_path (Path): kinematics data file
         """
         df = pd.read_csv(csv_path)
-        length = len(df)
+        self.columns = df.columns
 
-        # The network takes a sinusoidal signal as an input
-        sim_time = 10
-        freq = 1
-        time = torch.linspace(0, sim_time, length)
-        sin_signal = torch.sin(2 * torch.pi * freq * time)
+        # NOTE: frequency and time_step must match simulation
+        frequency = 1
+        time_step = 0.02
+        df["Sine"] = np.sin(2 * np.pi * frequency * np.arange(0, len(df) * time_step, time_step))
 
-        # data order = sin (1), angles (4*3*2), torso (2*2), touch_sens (4)
-        x_data = []
-        y_data = []
+        # Data order (29 columns: 24 joints, 4 touch, 1 sine):
+        # - Front left hip dof1
+        # - Front left hip dof2
+        # - Front right hip dof1
+        # - ...
+        # - Sinusoid
 
-        for sin_val, i in zip(sin_signal, range(length)):
-            x_data.append(torch.hstack([sin_val, torch.tensor(df.iloc[i])]))
-            # No need to predict/output touch sensor values
-            y_data.append(df.iloc[i + 1][:-4] if i < length - 1 else df.iloc[0][:-4])
+        # Input includes all but the final row
+        self.X = torch.tensor(df.values[:-1, :], dtype=torch.float32)
 
-        self.x_data: torch.Tensor = torch.vstack(x_data).type(torch.float32)
-        self.y_data: torch.Tensor = torch.tensor(y_data).type(torch.float32)
-        self.length: int = len(self.x_data)
-
-    def __getitem__(self, index) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.x_data[index], self.y_data[index]
+        # Output includes all but the first row and the touch sensor columns
+        self.Y = torch.tensor(df.values[1:, :24], dtype=torch.float32)
 
     def __len__(self) -> int:
-        return self.length
+        return len(self.X)
+
+    def __getitem__(self, index) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.X[index], self.Y[index]
 
 
 # %% [markdown]
-# ## Define training methods for the model
-#
-# These methods use an initialized model and training data to iteratively perform the forward and backward pass of
-# optimization. Aside from some data reformatting that depends on the input, output, and loss function, these methods will
-# always be the same for any shallow neural network.
-
-# %%
-def train_batch(
-    model: nn.Module,
-    x: torch.Tensor,
-    y: torch.Tensor,
-    optimizer: optim.Optimizer,
-    criteria: nn.Module,
-) -> float:
-    """Train the given model on a single batch of data.
-
-    Args:
-        model (nn.Module): model to train
-        x (torch.Tensor): input data
-        y (torch.Tensor): labeled output data
-        optimizer (optim.Optimizer): SGD-based optimzier
-        criteria (nn.Module): loss function
-
-    Returns:
-        float: mean loss for the batch
-    """
-
-    model.train()
-
-    # Compute output
-    y_predict = model(x)
-
-    # Compute loss
-    loss = criteria(y_predict, y)
-
-    # Zero out current gradient values
-    optimizer.zero_grad()
-
-    # Compute gradients
-    loss.backward()
-
-    # Update parameters
-    optimizer.step()
-
-    return loss.data.item()
-
-
-def train_loop(
-    model: nn.Module,
-    loader: DataLoader,
-    optimizer: optim.Optimizer,
-    critera: nn.Module,
-    num_epochs: int,
-) -> list[float]:
-    """Train the model.
-
-    Args:
-        model (nn.Module): model to train
-        loader (DataLoader): training data
-        optimizer (nn.Module): SGD-based optimizer
-        critera (nn.Module): loss function
-        num_epochs (int): number of epochs to train
-
-    Returns:
-        list[float]: mean loss for each batch in each epoch
-    """
-
-    losses = []
-
-    for _ in range(num_epochs):
-        for x, y in loader:
-            loss = train_batch(model, x, y, optimizer, critera)
-            losses.append(loss)
-
-    return losses
-
-
-# %% [markdown]
-# ## Define inference methods for the model
-#
-# These methods are like training, but we don't need to update the parameters of the model anymore because when we call
-# the test() method, the model has already been trained. Instead, this method just calculates the predicted y values and
-# returns them, AKA the forward pass.
-
-# %%
-def batch_inference(model: nn.Module, x: torch.Tensor) -> torch.Tensor:
-    model.eval()
-    return model(x)
-
-
-def inference(model: nn.Module, dataset: AngleDataset) -> torch.Tensor:
-    """Compute model outputs for the given data.
-
-    Args:
-        model (nn.Module): trained model
-        dataset (AngleDataset): data to test
-
-    Returns:
-        torch.Tensor: computed output values
-    """
-    loader = DataLoader(dataset, batch_size=len(dataset))
-    predictions = [batch_inference(model, x) for x, _ in loader]
-    return torch.concat(predictions)
-
-
-# %% [markdown]
-# ## Define Model Architecture
-# - 33 inputs = 3 joint angles per leg, 4 legs, 2 DOF per joint. 4 touch sensors. 1 sine timestamp.
-# - 28 outputs = *same as above, except just the joint angles*
-#
+# # Define model architecture
 
 # %%
 class GaitModel(nn.Module):
@@ -239,14 +120,86 @@ class GaitModel(nn.Module):
         all_layers = hidden_layers + [output_layer]
         self.layers = nn.Sequential(*all_layers)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layers(x)
+        # Print a summary of the model
+        summary(self)
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        return self.layers(X)
 
 
 # %% [markdown]
-# ## Define Run function
+# # Define training methods
 
 # %%
+def train_batch(
+    model: nn.Module,
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    optimizer: optim.Optimizer,
+    criteria: nn.Module,
+) -> float:
+    """Train the given model on a single batch of data.
+
+    Args:
+        model (nn.Module): model to train
+        X (torch.Tensor): input data
+        Y (torch.Tensor): labeled output data
+        optimizer (optim.Optimizer): SGD-based optimzier
+        criteria (nn.Module): loss function
+
+    Returns:
+        float: mean loss for the batch
+    """
+
+    model.train()
+
+    # Compute output
+    Y_predict = model(X)
+
+    # Compute loss
+    loss = criteria(Y_predict, Y)
+
+    # Zero out current gradient values
+    optimizer.zero_grad()
+
+    # Compute gradients
+    loss.backward()
+
+    # Update parameters
+    optimizer.step()
+
+    return loss.data.item()
+
+
+def train_loop(
+    model: nn.Module,
+    loader: DataLoader,
+    optimizer: optim.Optimizer,
+    critera: nn.Module,
+    num_epochs: int,
+) -> list[float]:
+    """Train the model.
+
+    Args:
+        model (nn.Module): model to train
+        loader (DataLoader): training data
+        optimizer (nn.Module): SGD-based optimizer
+        critera (nn.Module): loss function
+        num_epochs (int): number of epochs to train
+
+    Returns:
+        list[float]: mean loss for each batch in each epoch
+    """
+
+    losses = []
+
+    for _ in range(num_epochs):
+        for X, Y in loader:
+            loss = train_batch(model, X, Y, optimizer, critera)
+            losses.append(loss)
+
+    return losses
+
 def train(
     dataset: AngleDataset,
     num_epochs: int,
@@ -288,25 +241,48 @@ def train(
     return model, losses
 
 
+# %% [markdown]
+# # Define inference methods
+
 # %%
-DATA_DIR = Path("KinematicsData/")
+def batch_inference(model: nn.Module, X: torch.Tensor) -> torch.Tensor:
+    model.eval()
+    return model(X)
+
+
+def inference(model: nn.Module, dataset: AngleDataset) -> torch.Tensor:
+    """Compute model outputs for the given data.
+
+    Args:
+        model (nn.Module): trained model
+        dataset (AngleDataset): data to test
+
+    Returns:
+        torch.Tensor: computed output values
+    """
+    loader = DataLoader(dataset, batch_size=len(dataset))
+    predictions = [batch_inference(model, x) for x, _ in loader]
+    return torch.concat(predictions)
+
+
+# %% [markdown]
+# # Train models for each gait
+
+# %%
+DATA_DIR = Path("MotionData/")
 FIGURE_DIR = Path("Figures/")
-MODEL_OUTPUT_DIR = Path("ModelOutputs/")
 MODEL_DIR = Path("Models/")
 
-df = pd.read_csv(next(DATA_DIR.glob("*_kinematic.csv")))
-
-# We only need the first 28 columns (ignore the touch sensors for output)
-CSV_HEADER = df.columns[:28]
-CSV_HEADER
+# Load all datasets and take a peek at the first
+datasets = { f.stem.split("_")[0]: AngleDataset(f) for f in DATA_DIR.glob("*_kinematic.csv") }
+csv_header = list(datasets.values())[0].columns
 
 # %%
-datasets = {
-    f.stem.split("_")[0]: AngleDataset(f) for f in DATA_DIR.glob("*_kinematic.csv")
-}
-
 # Model hyperparameters
-layer_sizes = [33, 31, 30, 28]
+num_input = 29 # 24 angles, 4 touch sensors, 1 sinusoid
+num_output = 24 # 24 angles for next time step
+# layer_sizes = [33, 31, 30, 28]
+layer_sizes = [num_input, 32, 32, num_output]
 
 # Training hyperparameters
 num_epochs = 100
@@ -332,11 +308,11 @@ for gait_name in datasets:
     predictions = inference(model, dataset)
 
     # Save the outputs to a csv for quicker comparisons later
-    with open(MODEL_OUTPUT_DIR / f"{gait_name}_output.csv", "w") as csvfile:
+    with open(DATA_DIR / f"{gait_name}_model.csv", "w") as csvfile:
 
         writer = csv.writer(csvfile)
 
-        writer.writerow(CSV_HEADER)
+        writer.writerow(csv_header)
 
         for row in predictions:
             writer.writerow(row.tolist())
@@ -361,7 +337,7 @@ plt.savefig(FIGURE_DIR / f"losses.png", facecolor="white")
 # %%
 
 kinematics = sorted([f for f in DATA_DIR.glob("*_kinematic.csv") if f.is_file()])
-outputs = sorted([f for f in MODEL_OUTPUT_DIR.glob("*_output.csv") if f.is_file()])
+outputs = sorted([f for f in DATA_DIR.glob("*_model.csv") if f.is_file()])
 
 for actual, pred in zip(kinematics, outputs):
 
@@ -394,6 +370,4 @@ for actual, pred in zip(kinematics, outputs):
 
 
 # %%
-# # !jupytext --set-formats ipynb, py:percent gait_model.ipynb
-
-# %%
+# !jupytext --sync gait_training.ipynb
