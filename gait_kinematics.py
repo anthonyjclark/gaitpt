@@ -89,6 +89,7 @@ class Leg:
 
     def __init__(
         self,
+        name: str,
         angles: list[float],
         limits: list[tuple[float, float]],
         lengths: list[float],
@@ -102,6 +103,7 @@ class Leg:
             lengths (list[float]): list of leg lengths
             hip (Point, optional): location of the hip Defaults to Point().
         """
+        self.name = name
 
         self.num_segments = 3
         self.hip_position = hip_position
@@ -110,7 +112,7 @@ class Leg:
         assert len(limits) == self.num_segments
         assert len(lengths) == self.num_segments
 
-        self.centers = deepcopy(angles)
+        self.initial_offsets = deepcopy(angles)
         self.angles = list(accumulate(angles))
         self.limits = limits
         self.lengths = lengths
@@ -138,12 +140,12 @@ class Leg:
         return 1.0 if self.foot_position().y <= ground_level else 0.0
 
     def angle_offsets(self) -> list[float]:
-        #  Hip: angle - (  0    + center)
-        # !Hip: angle - (parent + center)
+        #     Hip: (   0   + initial) - angle
+        # not Hip: (parent + initial) - angle
         return [
-            wrap_to_pi(angle - (parent + center))
-            for angle, parent, center in zip(
-                self.angles, [0] + self.angles, self.centers
+            wrap_to_pi((parent + initial) - angle)
+            for angle, parent, initial in zip(
+                self.angles, [0] + self.angles, self.initial_offsets
             )
         ]
 
@@ -172,14 +174,10 @@ class Leg:
 
         prev_distance_to_goal = inf
 
-        for _ in range(max_steps):
+        for step in range(max_steps):
 
             # IK: start at the ankle and work to the hip (no joint at foot)
             for j in range(self.num_segments - 1, -1, -1):
-
-                parent_joint_angle = 0 if j == 0 else self.angles[j - 1]
-                joint_lo = self.limits[j][0] + parent_joint_angle
-                joint_hi = self.limits[j][1] + parent_joint_angle
 
                 joint_points = self.joint_points()
                 joint_to_foot = joint_points[-1] - joint_points[j]
@@ -187,10 +185,24 @@ class Leg:
 
                 # New joint angle will place the foot as close as possible to the goal
                 displacement_to_goal = Point.angle_between(joint_to_foot, joint_to_goal)
-                new_angle = wrap_to_pi(self.angles[j] + displacement_to_goal)
+                new_angle = self.angles[j] + displacement_to_goal
 
                 # Compute the new angle and clip within specified limits
-                self.angles[j] = wrap_to_pi(clip(new_angle, joint_lo, joint_hi))
+                parent_angle = 0 if j == 0 else self.angles[j - 1]
+                angle_lo = parent_angle + self.limits[j][0]
+                angle_hi = parent_angle + self.limits[j][1]
+
+                # d = lambda x: f"{degrees(x): 0.3f}"
+                # if self.name == "front_left" and j == 0:
+                #     print(
+                #         f"{step}, {j}, {d(self.angles[j])}, {d(new_angle)}, {d(angle_lo)}, {d(angle_hi)},",
+                #         f"{d(self.limits[j][0])}, {d(self.limits[j][1])}, {d(parent_angle)},",
+                #         f"{d(wrap_to_pi(clip(new_angle, angle_lo, angle_hi)))}",
+                #         file=sys.stderr,
+                #     )
+
+                # self.angles[j] = wrap_to_pi(new_angle)
+                self.angles[j] = wrap_to_pi(clip(new_angle, angle_lo, angle_hi))
 
             # Check if close enough to goal
             foot_distance_to_goal = abs((goal - self.foot_position()).norm())
@@ -222,8 +234,10 @@ class QuadrupedAnimat:
         with open(file, "r") as json_file:
             animat = json.load(json_file)["animat"]
 
-        front_hip_pos = Point(0.0, 0.0)
-        rear_hip_pos = Point(-animat["length"], 0.0)
+        length = animat["length"]
+
+        front_hip_pos = Point(length / 2, 0.0)
+        rear_hip_pos = Point(-length / 2, 0.0)
 
         self.legs: dict[str, Leg] = {}
 
@@ -234,7 +248,7 @@ class QuadrupedAnimat:
             lengths = leg_dict["lengths"]
             hip_pos = front_hip_pos if leg_name.startswith("front") else rear_hip_pos
 
-            self.legs[leg_name] = Leg(angles, limits, lengths, hip_pos)
+            self.legs[leg_name] = Leg(leg_name, angles, limits, lengths, hip_pos)
 
         # Location of ground below "hip_y" is unknown until we have posed the legs
         self.ground = self.legs["front_left"].joint_points()[-1].y
@@ -255,6 +269,7 @@ class QuadrupedAnimat:
         """
 
         # TODO: downsample frames https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.resample.html
+        frames = frames[::4]
 
         fig, ax = plt.subplots()
 
@@ -275,8 +290,8 @@ class QuadrupedAnimat:
 
         def init():
             """Figure axis setup."""
-            ax.set_xlim(-1, 1)
-            ax.set_ylim(-1, 1)
+            ax.set_xlim(-0.75, 0.75)
+            ax.set_ylim(-1, 0.5)
             return lines
 
         def update(frame, *fargs) -> Iterable:
@@ -422,8 +437,18 @@ class QuadrupedAnimat:
             #     angle_data[-1][0][0],
             #     self.legs["front_left"].angles[0],
             #     self.legs["front_left"].centers[0],
-            #     self.legs["front_left"].centers[0] - self.legs["front_left"].angles[0],
             # )
+            #     self.legs["front_left"].centers[0] - self.legs["front_left"].angles[0],
+
+            # for leg in self.legs.values():
+            #     print(
+            #         leg.angles[0],
+            #         leg.angles[1],
+            #         leg.angles[2],
+            #         file=sys.stderr,
+            #         end=" ",
+            #     )
+            # print(file=sys.stderr)
 
             # absolute = list(map(degrees, self.legs["front_left"].angles))
             # relative = list(map(degrees, self.legs["front_left"].angle_offsets()))
@@ -451,7 +476,7 @@ class QuadrupedAnimat:
         # Add touch sensors
         csv_header += ["FL_Touch", "FR_Touch", "RL_Touch", "RR_Touch"]
 
-        csv_filename = f"{gait_name}_kinematic_new.csv"
+        csv_filename = kinematics_path / f"{gait_name}_kinematic.csv"
         with open(csv_filename, "w", newline="") as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(csv_header)
@@ -464,8 +489,8 @@ class QuadrupedAnimat:
                 hips = [leg_angles[0] for leg_angles in angles]
                 knees = [leg_angles[1] for leg_angles in angles]
                 ankles = [leg_angles[2] for leg_angles in angles]
-                # row += interleave_with(hips + knees + ankles, 0.0)
-                row += interleave_with(list(map(degrees, hips + knees + ankles)), 0.0)
+                row += interleave_with(hips + knees + ankles, 0.0)
+                # row += interleave_with(list(map(degrees, hips + knees + ankles)), 0.0)
 
                 # Write touch sensors
                 row += touches
