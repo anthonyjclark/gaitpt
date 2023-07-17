@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.4
+#       jupytext_version: 1.13.8
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -18,19 +18,20 @@ import csv
 from math import radians
 from pathlib import Path
 
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
-from matplotlib import pyplot as plt
+
 from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
+import torch
+import torch.nn as nn
+
 from torchsummary import summary
 
 # %% [markdown]
 # # Define a pytorch Dataset
-
 
 # %%
 class KinematicsNoiseTransform(object):
@@ -120,7 +121,6 @@ class KinematicsDataset(Dataset):
 # %% [markdown]
 # # Define model architecture
 
-
 # %%
 class GaitModel(nn.Module):
     def __init__(self, layer_sizes: list[int], batch_norm: bool, dropout: float):
@@ -165,7 +165,6 @@ class GaitModel(nn.Module):
 
 # %% [markdown]
 # # Define training methods
-
 
 # %%
 def train_batch(
@@ -282,7 +281,6 @@ def train(
 # %% [markdown]
 # # Define inference methods
 
-
 # %%
 def batch_inference(model: nn.Module, X: torch.Tensor) -> torch.Tensor:
     model.eval()
@@ -334,6 +332,7 @@ batch_size = 128
 learning_rate = 0.01
 
 for gait_name in datasets:
+
     dataset = datasets[gait_name]
 
     print(f"Processing the '{gait_name}' dataset.")
@@ -352,6 +351,7 @@ for gait_name in datasets:
 
     # Save the outputs to a csv for quicker comparisons later
     with open(DATA_DIR / f"{gait_name}_model.csv", "w") as csvfile:
+
         writer = csv.writer(csv_file)
 
         writer.writerow(csv_header)
@@ -375,6 +375,7 @@ plt.savefig(FIGURE_DIR / f"losses.png", facecolor="white")
 
 # %%
 # !cp Models/walk_model.pt ../Python_ODE_3/Experiments/Bio_Gaits_Pretraining/pretrained_brains/walk_model.pt
+# !cp MotionData/walk_kinematic.csv ../Python_ODE_3/Experiments/Bio_Gaits_Pretraining/kinematic/walk_kinematic.csv
 
 # %% [markdown]
 # ## Sanity Check Data By Plotting
@@ -385,6 +386,7 @@ kinematics = sorted([f for f in DATA_DIR.glob("*_kinematic.csv") if f.is_file()]
 outputs = sorted([f for f in DATA_DIR.glob("*_model.csv") if f.is_file()])
 
 for actual, pred in zip(kinematics, outputs):
+
     # Radians should match simulation
     dfa = pd.read_csv(actual) / radians(120)
     dfp = pd.read_csv(pred)
