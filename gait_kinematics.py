@@ -512,7 +512,7 @@ if __name__ == "__main__":
         config_file = json.load(config_file)
         gaits = config_file["gaits"]
 
-    num_gait_cyles = 3
+    num_gait_cyles = 2
     num_foot_steps = 20
 
     for gait in gaits:

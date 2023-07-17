@@ -15,6 +15,7 @@
 
 # %%
 import csv
+from math import radians
 from pathlib import Path
 
 from matplotlib import pyplot as plt
@@ -33,22 +34,37 @@ from torchsummary import summary
 # # Define a pytorch Dataset
 
 # %%
-class GaussianNoiseTransform(object):
+class KinematicsNoiseTransform(object):
     """Add gaussian noise to a tensor."""
     def __init__(self, mean=0., std=1.):
         self.std = std
         self.mean = mean
+
+        # TODO: hardcoded for now
+        self.num_gauss = 24
+        self.num_touch = 4
+        self.touch_index = self.num_gauss
         
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
-        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+        new_tensor = tensor.clone()
+
+        # Add noise to angles
+        new_tensor[:self.num_gauss] += torch.randn_like(tensor[:self.num_gauss]) * self.std + self.mean
+
+        # Randomly flip touch sensors (and don't do anything with the sinusoid)
+        new_tensor[self.touch_index:-1] = torch.randint_like(tensor[self.touch_index:-1], 0, 2)
+        # new_tensor[self.touch_index:-1] = 0
+
+        # Don't add noise to sinusoid
+        return new_tensor
     
     def __repr__(self) -> str:
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 
 # %%
-class AngleDataset(Dataset):
-    def __init__(self, csv_path: Path):
+class KinematicsDataset(Dataset):
+    def __init__(self, csv_path: Path, transform=None):
         """Create a PyTorch dataset from CSV data.
 
         Args:
@@ -56,6 +72,10 @@ class AngleDataset(Dataset):
         """
         df = pd.read_csv(csv_path)
         self.columns = df.columns
+
+        # NOTE: max_radians_scale must match simulation
+        max_radians_scale = radians(120)
+        df.iloc[:,:24] = df.iloc[:,:24].div(max_radians_scale, axis=0)
 
         # NOTE: frequency and time_step must match simulation
         frequency = 1
@@ -67,6 +87,10 @@ class AngleDataset(Dataset):
         # - Front left hip dof2
         # - Front right hip dof1
         # - ...
+        # - Front left touch sensor
+        # - Front right touch sensor
+        # - Rear left touch sensor
+        # - Rear right touch sensor
         # - Sinusoid
 
         # Input includes all but the final row
@@ -75,11 +99,14 @@ class AngleDataset(Dataset):
         # Output includes all but the first row and the touch sensor columns
         self.Y = torch.tensor(df.values[1:, :24], dtype=torch.float32)
 
+        self.transform = transform
+
     def __len__(self) -> int:
         return len(self.X)
 
     def __getitem__(self, index) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.X[index], self.Y[index]
+        x = self.X[index]
+        return self.transform(x) if self.transform else x, self.Y[index]
 
 
 # %% [markdown]
@@ -201,7 +228,7 @@ def train_loop(
     return losses
 
 def train(
-    dataset: AngleDataset,
+    dataset: KinematicsDataset,
     num_epochs: int,
     batch_size: int,
     learning_rate: float,
@@ -250,7 +277,7 @@ def batch_inference(model: nn.Module, X: torch.Tensor) -> torch.Tensor:
     return model(X)
 
 
-def inference(model: nn.Module, dataset: AngleDataset) -> torch.Tensor:
+def inference(model: nn.Module, dataset: KinematicsDataset) -> torch.Tensor:
     """Compute model outputs for the given data.
 
     Args:
@@ -273,20 +300,22 @@ DATA_DIR = Path("MotionData/")
 FIGURE_DIR = Path("Figures/")
 MODEL_DIR = Path("Models/")
 
+# Add noise to dataset inputs
+transform = KinematicsNoiseTransform(0, 0.1)
+
 # Load all datasets and take a peek at the first
-datasets = { f.stem.split("_")[0]: AngleDataset(f) for f in DATA_DIR.glob("*_kinematic.csv") }
+datasets = { f.stem.split("_")[0]: KinematicsDataset(f, transform=transform) for f in DATA_DIR.glob("*_kinematic.csv") }
 csv_header = list(datasets.values())[0].columns
 
 # %%
 # Model hyperparameters
 num_input = 29 # 24 angles, 4 touch sensors, 1 sinusoid
 num_output = 24 # 24 angles for next time step
-# layer_sizes = [33, 31, 30, 28]
 layer_sizes = [num_input, 32, 32, num_output]
 
 # Training hyperparameters
-num_epochs = 100
-batch_size = 32
+num_epochs = 25
+batch_size = 128
 learning_rate = 0.01
 
 for gait_name in datasets:
@@ -331,6 +360,9 @@ plt.legend()
 
 plt.savefig(FIGURE_DIR / f"losses.png", facecolor="white")
 
+# %%
+# !cp Models/walk_model.pt ../Python_ODE_3/Experiments/Bio_Gaits_Pretraining/pretrained_brains/walk_model.pt
+
 # %% [markdown]
 # ## Sanity Check Data By Plotting
 
@@ -341,7 +373,8 @@ outputs = sorted([f for f in DATA_DIR.glob("*_model.csv") if f.is_file()])
 
 for actual, pred in zip(kinematics, outputs):
 
-    dfa = pd.read_csv(actual)
+    # Radians should match simulation
+    dfa = pd.read_csv(actual) / radians(120)
     dfp = pd.read_csv(pred)
 
     columns = dfp.columns
@@ -371,3 +404,5 @@ for actual, pred in zip(kinematics, outputs):
 
 # %%
 # !jupytext --sync gait_training.ipynb
+
+# %%
