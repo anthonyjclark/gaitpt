@@ -1,5 +1,7 @@
 # Gaitpt
 
+https://github.com/tasts-robots/pink
+
 Pre-training gaits for genetic algorithms
 
 ![](example.gifj)

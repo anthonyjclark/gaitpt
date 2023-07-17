@@ -593,7 +593,7 @@ class Leg:
                 # Compute the new angle and clip within specified limits
                 self.angles[i] = clip(new_angle, lo_limit, hi_limit)
 
-            # Check if close enough to goal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               l
+            # Check if close enough to goal
             dist = (goal - self.tip_position()).norm
             if abs(dist) < tolerance:
                 break
